@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ObjectId } from 'mongoose';
@@ -11,16 +11,23 @@ export class ProductController {
     return this.productService.getAll();
   }
 
-  @Get(':id')
-  getById(@Param('id') id: ObjectId) {
-    return this.productService.getInfoByProductId(id);
-  }
-
   @Post('/add')
   create(@Body() dto: CreateProductDto) {
     return this.productService.create(dto);
   }
 
-  @Delete('/delete/:id')
-  delete() {}
+  @Get('/lastadded')
+  getLastAddedProducts() {
+    return this.productService.getLastAddedProducts();
+  }
+
+  @Get('/lastupdated')
+  getLastUpdatedProducts() {
+    return this.productService.getLastUpdatedProducts();
+  }
+
+  @Get(':id')
+  getById(@Param('id') id: ObjectId) {
+    return this.productService.getInfoByProductId(id);
+  }
 }
