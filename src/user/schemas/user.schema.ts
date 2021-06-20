@@ -8,7 +8,7 @@ export type UserDocument = User & Document;
 
 @Schema()
 export class User {
-  @ApiProperty({ example: 'Username', description: 'User name' })
+  @ApiProperty({ example: 'Indiro', description: 'User name' })
   @Prop({
     required: true,
   })
@@ -27,12 +27,23 @@ export class User {
   })
   password: string;
 
+  @ApiProperty({
+    example: '1624216164414',
+    description: 'User date created',
+    required: false,
+    default: Date.now(),
+  })
   @Prop({
     default: Date.now,
   })
   date: Date;
 
-  @ApiProperty({ example: 'ADMIN', description: 'User role' })
+  @ApiProperty({
+    example: 'ADMIN',
+    description: 'User role',
+    required: false,
+    default: 'USER',
+  })
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Role' })
   role: Role;
 }
