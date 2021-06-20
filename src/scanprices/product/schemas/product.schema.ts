@@ -1,5 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
+import { User } from '../../../user/schemas/user.schema';
+import * as mongoose from 'mongoose';
+import { Shop } from '../../shop/schemas/shop.schema';
 
 export type ProductDocument = Product & Document;
 
@@ -13,13 +16,13 @@ export class Product {
   @Prop({
     required: true,
   })
-  url: number;
+  url: string;
 
-  @Prop()
-  shop: string; //!
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Shop' })
+  shop: Shop;
 
-  @Prop()
-  user: string; //!
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
+  user: User;
 
   @Prop({
     default: false,
