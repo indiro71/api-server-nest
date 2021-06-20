@@ -22,4 +22,9 @@ export class UserService {
     const user = await this.userModel.create({ ...dto, role });
     return user;
   }
+
+  async getUserByEmail(email: string): Promise<User> {
+    const user = this.userModel.findOne().where('email').equals(email);
+    return user;
+  }
 }
