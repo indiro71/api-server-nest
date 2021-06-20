@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Schema } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { RoleService } from '../role/role.service';
@@ -13,14 +13,13 @@ export class UserService {
   ) {}
 
   async getAllUsers(): Promise<User[]> {
-    const users = await this.userModel.find();
+    const users = await this.userModel.find().populate('role');
     return users;
   }
 
   async createUser(dto: CreateUserDto): Promise<User> {
-    const user = await this.userModel.create({ ...dto });
     const role = await this.roleService.getRoleByValue('USER');
-    await user.$set('role', role);
+    const user = await this.userModel.create({ ...dto, role });
     return user;
   }
 }

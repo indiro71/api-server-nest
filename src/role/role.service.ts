@@ -14,7 +14,10 @@ export class RoleService {
   }
 
   async getRoleByValue(value: string): Promise<Role> {
-    const role = await this.roleModel.findOne().where('role').equals(value);
+    const role = await this.roleModel
+      .findOne()
+      .where('value')
+      .equals(value.toUpperCase());
     return role;
   }
 }
