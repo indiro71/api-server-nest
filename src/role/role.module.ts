@@ -10,6 +10,6 @@ import { Role, RoleSchema } from './schemas/role.schema';
   imports: [
     MongooseModule.forFeature([{ name: Role.name, schema: RoleSchema }]),
   ],
-  exports: [RoleService]
+  exports: [RoleService],
 })
 export class RoleModule {}

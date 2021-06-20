@@ -6,12 +6,10 @@ import { Role, RoleDocument } from './schemas/role.schema';
 
 @Injectable()
 export class RoleService {
-  constructor(
-    @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
-  ) {}
+  constructor(@InjectModel(Role.name) private roleModel: Model<RoleDocument>) {}
 
   async createRole(roleDto: CreateRoleDto): Promise<Role> {
-    const role = await this.roleModel.create({...roleDto});
+    const role = await this.roleModel.create({ ...roleDto });
     return role;
   }
 

@@ -4,8 +4,7 @@ import { CreateRoleDto } from './dto/create-role.dto';
 
 @Controller('roles')
 export class RoleController {
-  constructor(private roleService: RoleService) {
-  }
+  constructor(private roleService: RoleService) {}
 
   @Post()
   create(@Body() roleDto: CreateRoleDto) {

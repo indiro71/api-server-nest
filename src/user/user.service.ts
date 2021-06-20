@@ -9,7 +9,7 @@ import { RoleService } from '../role/role.service';
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private roleService: RoleService
+    private roleService: RoleService,
   ) {}
 
   async getAllUsers(): Promise<User[]> {

@@ -12,7 +12,7 @@ import { RoleModule } from '../role/role.module';
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     MongooseModule.forFeature([{ name: Role.name, schema: RoleSchema }]),
-    RoleModule
+    RoleModule,
   ],
 })
 export class UserModule {}
