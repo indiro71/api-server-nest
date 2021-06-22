@@ -34,7 +34,7 @@ export class ProductController {
   }
 
   @ApiOperation({ summary: 'Scan product' })
-  @ApiResponse({ status: 200, type: Product })
+  @ApiResponse({ status: 200 })
   @Post('/scan')
   scan(@Body() { url }) {
     return this.productService.scan(url);
