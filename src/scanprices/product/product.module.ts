@@ -5,6 +5,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Product, ProductSchema } from './schemas/product.schema';
 import { PriceModule } from '../price/price.module';
 import { Price, PriceSchema } from '../price/schemas/price.schema';
+import { ParserModule } from '../../parser/parser.module';
+import { ShopModule } from '../shop/shop.module';
 
 @Module({
   controllers: [ProductController],
@@ -13,6 +15,8 @@ import { Price, PriceSchema } from '../price/schemas/price.schema';
     MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }]),
     MongooseModule.forFeature([{ name: Price.name, schema: PriceSchema }]),
     PriceModule,
+    ParserModule,
+    ShopModule,
   ],
 })
 export class ProductModule {}

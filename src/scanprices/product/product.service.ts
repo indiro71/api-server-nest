@@ -1,10 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { PriceService } from '../price/price.service';
 import { Price, PriceDocument } from '../price/schemas/price.schema';
+import { ParserService } from '../../parser/parser.service';
+import { ShopService } from '../shop/shop.service';
+import { Shop } from '../shop/schemas/shop.schema';
+import { load } from 'cheerio';
 
 @Injectable()
 export class ProductService {
@@ -12,6 +16,8 @@ export class ProductService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Price.name) private priceModel: Model<PriceDocument>,
     private priceService: PriceService,
+    private parserService: ParserService,
+    private shopService: ShopService,
   ) {}
 
   async getAll(): Promise<Product[]> {
@@ -22,8 +28,8 @@ export class ProductService {
     return products;
   }
 
-  async create(dto: CreateProductDto): Promise<Product> {
-    const product = await this.productModel.create({ ...dto });
+  async create(productDto: CreateProductDto): Promise<Product> {
+    const product = await this.productModel.create({ ...productDto });
     return product;
   }
 
@@ -31,6 +37,9 @@ export class ProductService {
     const product = await this.productModel
       .findById(id)
       .populate('shop', 'name');
+    if (!product) {
+      throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+    }
     return product;
   }
 
@@ -71,5 +80,83 @@ export class ProductService {
       products,
       prices,
     };
+  }
+
+  async scan(productUrl: string) {
+    if (!productUrl) {
+      throw new HttpException('Url exist', HttpStatus.BAD_REQUEST);
+    }
+
+    const shop = await this.shopService.getShopByProductUrl(productUrl);
+    if (!shop) {
+      throw new HttpException('Shop not found', HttpStatus.BAD_REQUEST);
+    }
+
+    const content = await this.parserService.getPageContent(productUrl);
+    const data = this.parseProductData(content, shop, productUrl);
+
+    if (!data) {
+      await this.parserService.closeBrowser();
+      throw new HttpException('Error scan', HttpStatus.BAD_REQUEST);
+    }
+
+    await this.parserService.closeBrowser();
+    return data;
+  }
+
+  parseProductData(content, shop, url: string) {
+    try {
+      const $ = load(content);
+
+      const prices = shop.tagPrices
+        .map((price) => {
+          if ($(price).text()) {
+            if (shop.elementPrice) {
+              if ($(price).text().indexOf(shop.elementPrice) !== -1) {
+                const clearPrice = $(price)
+                  .text()
+                  .replace(/\s/g, '')
+                  .match(/\d+/);
+                return parseInt(clearPrice.toString());
+              }
+              return null;
+            }
+            const clearPrice = $(price).text().replace(/\s/g, '').match(/\d+/);
+            return parseInt(clearPrice.toString());
+          }
+        })
+        .filter(function (x) {
+          return x !== undefined && x !== null;
+        });
+
+      const name = $(shop.tagName).text().replace(/\r?\n/g, '').trim();
+      const imageTag = 'meta[property="' + shop.tagImage + '"]';
+      let image = $(imageTag).attr('content');
+      if (image) {
+        image = image.replace(/\r?\n/g, '');
+      }
+
+      if (name) {
+        const good = {
+          name,
+          url: url,
+          shop: shop._id,
+          image,
+          available: prices.length > 0,
+          currentPrice: prices.length > 0 ? Math.min.apply(null, prices) : 0,
+          minPrice: prices.length > 0 ? Math.min.apply(null, prices) : 0,
+          maxPrice: prices.length > 0 ? Math.min.apply(null, prices) : 0,
+        };
+        return good;
+      }
+      return null;
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  async delete(id) {
+    const product = this.productModel.findByIdAndDelete(id);
+    return product;
   }
 }

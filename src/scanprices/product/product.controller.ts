@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ObjectId } from 'mongoose';
@@ -20,8 +20,24 @@ export class ProductController {
   @ApiOperation({ summary: 'Add product' })
   @ApiResponse({ status: 200, type: Product })
   @Post('/add')
-  create(@Body() dto: CreateProductDto) {
-    return this.productService.create(dto);
+  create(
+    @Body()
+    {
+      product: productDto,
+      alertPrice,
+    }: {
+      product: CreateProductDto;
+      alertPrice: number;
+    },
+  ) {
+    return this.productService.create(productDto);
+  }
+
+  @ApiOperation({ summary: 'Scan product' })
+  @ApiResponse({ status: 200, type: Product })
+  @Post('/scan')
+  scan(@Body() { url }) {
+    return this.productService.scan(url);
   }
 
   @ApiOperation({ summary: 'Last added products' })
@@ -43,5 +59,12 @@ export class ProductController {
   @Get(':id')
   getById(@Param('id') id: ObjectId) {
     return this.productService.getInfoByProductId(id);
+  }
+
+  @ApiOperation({ summary: 'Delete product by id' })
+  @ApiResponse({ status: 200, type: Product })
+  @Delete(':id')
+  delete(@Param('id') id: ObjectId) {
+    return this.productService.delete(id);
   }
 }

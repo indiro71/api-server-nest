@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { CreateShopDto } from './dto/create-shop.dto';
@@ -15,6 +15,9 @@ export class ShopService {
 
   async getById(id: ObjectId): Promise<Shop> {
     const shop = await this.shopModel.findById(id);
+    if (!shop) {
+      throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+    }
     return shop;
   }
 
@@ -38,5 +41,16 @@ export class ShopService {
   async delete(id: ObjectId): Promise<Shop> {
     const deletedShop = await this.shopModel.findByIdAndDelete(id);
     return deletedShop;
+  }
+
+  async getShopByProductUrl(productUrl: string) {
+    const shops = await this.getAll();
+
+    const goodShop = shops.filter((shop) => {
+      return productUrl.indexOf(shop.url) !== -1;
+    });
+
+    if (goodShop[0]) return goodShop[0];
+    return null;
   }
 }
