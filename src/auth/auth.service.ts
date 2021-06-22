@@ -40,7 +40,7 @@ export class AuthService {
     const payload = { email: user.email, role: user.role };
     return {
       token: 'Bearer ' + this.jwtService.sign(payload),
-      message: `Wellcome ${user.name}!`,
+      message: `Welcome ${user.name}!`,
     };
   }
 
