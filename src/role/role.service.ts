@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, ObjectId } from 'mongoose';
 import { Role, RoleDocument } from './schemas/role.schema';
 
 @Injectable()
@@ -18,6 +18,12 @@ export class RoleService {
       .findOne()
       .where('value')
       .equals(value.toUpperCase());
+    return role;
+  }
+
+  async getRoleById(id: ObjectId): Promise<Role> {
+    const role = await this.roleModel
+      .findById(id);
     return role;
   }
 }

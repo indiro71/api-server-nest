@@ -8,6 +8,7 @@ import { Price, PriceSchema } from '../price/schemas/price.schema';
 import { ParserModule } from '../../parser/parser.module';
 import { ShopModule } from '../shop/shop.module';
 import { AuthModule } from '../../auth/auth.module';
+import { RoleModule } from '../../role/role.module';
 
 @Module({
   controllers: [ProductController],
@@ -19,6 +20,7 @@ import { AuthModule } from '../../auth/auth.module';
     ParserModule,
     ShopModule,
     AuthModule,
+    RoleModule
   ],
 })
 export class ProductModule {}

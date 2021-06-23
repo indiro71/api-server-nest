@@ -8,6 +8,7 @@ import { Price, PriceDocument } from '../price/schemas/price.schema';
 import { ParserService } from '../../parser/parser.service';
 import { ShopService } from '../shop/shop.service';
 import { load } from 'cheerio';
+import { RoleService } from '../../role/role.service';
 
 @Injectable()
 export class ProductService {
@@ -17,6 +18,7 @@ export class ProductService {
     private priceService: PriceService,
     private parserService: ParserService,
     private shopService: ShopService,
+    private roleService: RoleService,
   ) {}
 
   async getAll(): Promise<Product[]> {
@@ -153,9 +155,10 @@ export class ProductService {
     }
   }
 
-  async delete(id, userId) {
+  async delete(id, user) {
     const product = await this.productModel.findById(id);
-    if (userId === product.user.toString()) {
+    const role = await this.roleService.getRoleById(user.role);
+    if (role.value === 'ADMIN' || user?._id === product?.user?.toString()) {
       await product.delete();
     }
     return product;

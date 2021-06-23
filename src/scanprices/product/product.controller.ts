@@ -47,6 +47,7 @@ export class ProductController {
 
   @ApiOperation({ summary: 'Scan product' })
   @ApiResponse({ status: 200 })
+  @UseGuards(JwtAuthGuard)
   @Post('/scan')
   scan(@Body() { url }) {
     return this.productService.scan(url);
@@ -78,6 +79,6 @@ export class ProductController {
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   delete(@Param('id') id: ObjectId, @Req() request) {
-    return this.productService.delete(id, request.user._id);
+    return this.productService.delete(id, request.user);
   }
 }
