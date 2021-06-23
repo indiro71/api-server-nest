@@ -9,6 +9,7 @@ import { ParserService } from '../../parser/parser.service';
 import { ShopService } from '../shop/shop.service';
 import { load } from 'cheerio';
 import { RoleService } from '../../role/role.service';
+import { SubscribeService } from '../subscribe/subscribe.service';
 
 @Injectable()
 export class ProductService {
@@ -19,6 +20,7 @@ export class ProductService {
     private parserService: ParserService,
     private shopService: ShopService,
     private roleService: RoleService,
+    private subscribeService: SubscribeService,
   ) {}
 
   async getAll(): Promise<Product[]> {
@@ -29,8 +31,11 @@ export class ProductService {
     return products;
   }
 
-  async create(productDto: CreateProductDto, user): Promise<Product> {
+  async create(productDto: CreateProductDto, user, alertPrice): Promise<Product> {
     const product = await this.productModel.create({ ...productDto, user });
+    if (alertPrice) {
+      await this.subscribeService.subscribe({price: alertPrice}, product._id, user._id)
+    }
     return product;
   }
 

@@ -42,7 +42,7 @@ export class ProductController {
     },
     @Req() request,
   ) {
-    return this.productService.create(productDto, request.user._id);
+    return this.productService.create(productDto, request.user._id, alertPrice);
   }
 
   @ApiOperation({ summary: 'Scan product' })
