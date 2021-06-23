@@ -1,9 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ObjectId } from 'mongoose';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Product } from './schemas/product.schema';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
 @ApiTags('Product')
 @Controller('/scanprices/products')
@@ -19,6 +29,7 @@ export class ProductController {
 
   @ApiOperation({ summary: 'Add product' })
   @ApiResponse({ status: 200, type: Product })
+  @UseGuards(JwtAuthGuard)
   @Post('/add')
   create(
     @Body()
@@ -29,8 +40,9 @@ export class ProductController {
       product: CreateProductDto;
       alertPrice: number;
     },
+    @Req() request,
   ) {
-    return this.productService.create(productDto);
+    return this.productService.create(productDto, request.user._id);
   }
 
   @ApiOperation({ summary: 'Scan product' })
@@ -63,8 +75,9 @@ export class ProductController {
 
   @ApiOperation({ summary: 'Delete product by id' })
   @ApiResponse({ status: 200, type: Product })
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  delete(@Param('id') id: ObjectId) {
-    return this.productService.delete(id);
+  delete(@Param('id') id: ObjectId, @Req() request) {
+    return this.productService.delete(id, request.user._id);
   }
 }

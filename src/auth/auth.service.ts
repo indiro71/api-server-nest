@@ -9,6 +9,7 @@ import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../user/schemas/user.schema';
+import mongoose from 'mongoose';
 
 @Injectable()
 export class AuthService {
@@ -37,9 +38,9 @@ export class AuthService {
   }
 
   private async generateToken(user: User) {
-    const payload = { email: user.email, role: user.role };
+    const payload = { email: user.email, role: user.role, _id: user._id };
     return {
-      token: 'Bearer ' + this.jwtService.sign(payload),
+      token: this.jwtService.sign(payload),
       message: `Welcome ${user.name}!`,
     };
   }

@@ -7,7 +7,6 @@ import { PriceService } from '../price/price.service';
 import { Price, PriceDocument } from '../price/schemas/price.schema';
 import { ParserService } from '../../parser/parser.service';
 import { ShopService } from '../shop/shop.service';
-import { Shop } from '../shop/schemas/shop.schema';
 import { load } from 'cheerio';
 
 @Injectable()
@@ -28,8 +27,8 @@ export class ProductService {
     return products;
   }
 
-  async create(productDto: CreateProductDto): Promise<Product> {
-    const product = await this.productModel.create({ ...productDto });
+  async create(productDto: CreateProductDto, user): Promise<Product> {
+    const product = await this.productModel.create({ ...productDto, user });
     return product;
   }
 
@@ -100,7 +99,6 @@ export class ProductService {
       throw new HttpException('Error scan', HttpStatus.BAD_REQUEST);
     }
 
-    await this.parserService.closeBrowser();
     return data;
   }
 
@@ -155,8 +153,11 @@ export class ProductService {
     }
   }
 
-  async delete(id) {
-    const product = this.productModel.findByIdAndDelete(id);
+  async delete(id, userId) {
+    const product = await this.productModel.findById(id);
+    if (userId === product.user.toString()) {
+      await product.delete();
+    }
     return product;
   }
 }

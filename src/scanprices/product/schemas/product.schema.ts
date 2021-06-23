@@ -9,6 +9,8 @@ export type ProductDocument = Product & Document;
 
 @Schema()
 export class Product {
+  _id: any;
+
   @ApiProperty({ example: 'Apple iphone 12 pro', description: 'Product name' })
   @Prop({
     required: true,

@@ -8,6 +8,8 @@ export type UserDocument = User & Document;
 
 @Schema()
 export class User {
+  _id: any;
+
   @ApiProperty({ example: 'Indiro', description: 'User name' })
   @Prop({
     required: true,
