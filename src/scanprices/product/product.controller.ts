@@ -35,14 +35,12 @@ export class ProductController {
     @Body()
     {
       product: productDto,
-      alertPrice,
     }: {
       product: CreateProductDto;
-      alertPrice: number;
     },
     @Req() request,
   ) {
-    return this.productService.create(productDto, request.user._id, alertPrice);
+    return this.productService.create(productDto, request.user._id);
   }
 
   @ApiOperation({ summary: 'Scan product' })

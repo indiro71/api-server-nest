@@ -22,7 +22,7 @@ import { SubscribeModule } from '../subscribe/subscribe.module';
     ShopModule,
     AuthModule,
     RoleModule,
-    SubscribeModule
+    SubscribeModule,
   ],
 })
 export class ProductModule {}

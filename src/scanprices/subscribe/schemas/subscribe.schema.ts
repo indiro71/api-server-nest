@@ -25,7 +25,11 @@ export class Subscribe {
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   user: User;
 
-  @ApiProperty({ example: true, description: 'Subscribe enabled', default: true })
+  @ApiProperty({
+    example: true,
+    description: 'Subscribe enabled',
+    default: true,
+  })
   @Prop({
     required: true,
     default: true,

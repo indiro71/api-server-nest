@@ -91,7 +91,7 @@ export class ParserService {
     try {
       await this.newPage();
       await this.page.goto(url, { waitUntil: 'domcontentloaded' });
-      await this.wait(3000);
+      // await this.wait(3000);
       return await this.page.content();
     } catch (e) {
       await this.closeBrowser();

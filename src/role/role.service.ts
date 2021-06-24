@@ -22,8 +22,7 @@ export class RoleService {
   }
 
   async getRoleById(id: ObjectId): Promise<Role> {
-    const role = await this.roleModel
-      .findById(id);
+    const role = await this.roleModel.findById(id);
     return role;
   }
 }

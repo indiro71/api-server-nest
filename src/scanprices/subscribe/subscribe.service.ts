@@ -2,32 +2,43 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { Subscribe, SubscribeDocument } from './schemas/subscribe.schema';
+import { CreateSubscribeDto } from './dto/create-subscribe.dto';
 
 @Injectable()
 export class SubscribeService {
-  constructor(@InjectModel(Subscribe.name) private subscribeModel: Model<SubscribeDocument>,) {
-  }
+  constructor(
+    @InjectModel(Subscribe.name)
+    private subscribeModel: Model<SubscribeDocument>,
+  ) {}
 
-  async subscribe(price, productId: ObjectId, userId: ObjectId) {
-    const subscribe = await this.subscribeModel.findOne().where('good').equals(productId).where('user').equals(userId);
+  async subscribe(subscribeDto: CreateSubscribeDto, userId: ObjectId) {
+    const subscribe = await this.subscribeModel
+      .findOne()
+      .where({ good: subscribeDto.good, user: userId });
 
     if (subscribe) {
-      subscribe.price = price;
+      subscribe.price = subscribeDto.price;
       await subscribe.save();
       return subscribe;
     } else {
       const newSubscribe = await this.subscribeModel.create({
-        price,
-        good: productId,
-        user: userId
+        ...subscribeDto,
+        user: userId,
       });
-
-      await newSubscribe.save();
       return newSubscribe;
     }
   }
 
   async unsubscribe(productId: ObjectId, userId: ObjectId) {
-    return true;
+    const subscribe = await this.getSubscribeById(productId, userId);
+    await subscribe.delete();
+    return subscribe;
+  }
+
+  async getSubscribeById(productId: ObjectId, userId) {
+    const subscribe = await this.subscribeModel
+      .findOne()
+      .where({ good: productId, user: userId });
+    return subscribe;
   }
 }

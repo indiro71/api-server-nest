@@ -9,9 +9,11 @@ import { AuthModule } from '../../auth/auth.module';
   providers: [SubscribeService],
   controllers: [SubscribeController],
   imports: [
-    MongooseModule.forFeature([{ name: Subscribe.name, schema: SubscribeSchema }]),
-    AuthModule
+    MongooseModule.forFeature([
+      { name: Subscribe.name, schema: SubscribeSchema },
+    ]),
+    AuthModule,
   ],
-  exports: [SubscribeService]
+  exports: [SubscribeService],
 })
 export class SubscribeModule {}

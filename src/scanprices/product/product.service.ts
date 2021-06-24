@@ -10,6 +10,7 @@ import { ShopService } from '../shop/shop.service';
 import { load } from 'cheerio';
 import { RoleService } from '../../role/role.service';
 import { SubscribeService } from '../subscribe/subscribe.service';
+import { User } from '../../user/schemas/user.schema';
 
 @Injectable()
 export class ProductService {
@@ -31,11 +32,8 @@ export class ProductService {
     return products;
   }
 
-  async create(productDto: CreateProductDto, user, alertPrice): Promise<Product> {
+  async create(productDto: CreateProductDto, user): Promise<Product> {
     const product = await this.productModel.create({ ...productDto, user });
-    if (alertPrice) {
-      await this.subscribeService.subscribe({price: alertPrice}, product._id, user._id)
-    }
     return product;
   }
 
