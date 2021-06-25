@@ -9,11 +9,11 @@ import { ParserService } from '../../parser/parser.service';
 import { ShopService } from '../shop/shop.service';
 import { load } from 'cheerio';
 import { RoleService } from '../../role/role.service';
-import { SubscribeService } from '../subscribe/subscribe.service';
-import { User } from '../../user/schemas/user.schema';
+import { Page } from 'puppeteer';
 
 @Injectable()
 export class ProductService {
+  private browserPage: Page;
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Price.name) private priceModel: Model<PriceDocument>,
@@ -21,7 +21,9 @@ export class ProductService {
     private parserService: ParserService,
     private shopService: ShopService,
     private roleService: RoleService,
-  ) {}
+  ) {
+    this.browserPage = null;
+  }
 
   async getAll(): Promise<Product[]> {
     const products = await this.productModel
@@ -95,13 +97,18 @@ export class ProductService {
       throw new HttpException('Shop not found', HttpStatus.BAD_REQUEST);
     }
 
-    const content = await this.parserService.getPageContent(productUrl);
+    if (!this.browserPage || this.browserPage.isClosed()) {
+      this.browserPage = await this.parserService.createPage();
+    }
+    const content = await this.parserService.getPageContent(productUrl, this.browserPage);
     const data = this.parseProductData(content, shop, productUrl);
 
     if (!data) {
       await this.parserService.closeBrowser();
       throw new HttpException('Error scan', HttpStatus.BAD_REQUEST);
     }
+
+    await this.browserPage.close();
 
     return data;
   }

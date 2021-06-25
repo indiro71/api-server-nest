@@ -107,12 +107,14 @@ export class ParserService {
     await this.page.waitFor(max > 0 ? random.int(min, max) : min);
   }
 
-  async getPageContent(url) {
+  async getPageContent(url: string, page: Page = this.page) {
     try {
-      await this.newPage();
-      await this.page.goto(url, { waitUntil: 'domcontentloaded' });
+      if (!page || page.isClosed()) {
+        page = await this.createPage();
+      }
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
       // await this.wait(3000);
-      return await this.page.content();
+      return await page.content();
     } catch (e) {
       await this.closeBrowser();
     }
