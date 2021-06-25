@@ -103,7 +103,7 @@ export class Product {
   @Prop({
     default: Date.now,
   })
-  dateUpdate: Date;
+  dateUpdate: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

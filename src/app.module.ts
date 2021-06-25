@@ -6,9 +6,12 @@ import { ScanpricesModule } from './scanprices/scanprices.module';
 import { RoleModule } from './role/role.module';
 import { AuthModule } from './auth/auth.module';
 import { ParserModule } from './parser/parser.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CronService } from './cron/cron.service';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       envFilePath: `.${process.env.NODE_ENV}.env`,
     }),
@@ -17,7 +20,8 @@ import { ParserModule } from './parser/parser.module';
     ScanpricesModule,
     RoleModule,
     AuthModule,
-    ParserModule,
+    ParserModule
   ],
+  providers: [CronService],
 })
 export class AppModule {}

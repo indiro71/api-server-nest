@@ -6,5 +6,6 @@ import { SubscribeModule } from './subscribe/subscribe.module';
 
 @Module({
   imports: [ProductModule, PriceModule, ShopModule, SubscribeModule],
+  exports: [ProductModule, PriceModule, ShopModule, SubscribeModule],
 })
 export class ScanpricesModule {}

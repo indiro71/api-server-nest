@@ -54,6 +54,10 @@ export class ParserService {
   }
 
   async newPage() {
+    if (!this.browser) {
+      await this.initBrowser(true, process.env.NODE_ENV === 'development');
+    }
+
     if (!this.page) {
       this.page = await this.browser.newPage();
     }
@@ -67,6 +71,26 @@ export class ParserService {
     } else {
       await this.page.setUserAgent(this.user_desktop_agent);
     }
+  }
+
+  async createPage() {
+    if (!this.browser) {
+      await this.initBrowser(true, process.env.NODE_ENV === 'development');
+    }
+
+    const newPage: Page = await this.browser.newPage();
+
+    await newPage.setExtraHTTPHeaders({
+      'Accept-Language': 'en',
+    });
+
+    if (this.mobile) {
+      await newPage.setUserAgent(this.user_mobile_agent);
+    } else {
+      await newPage.setUserAgent(this.user_desktop_agent);
+    }
+
+    return newPage;
   }
 
   async closePage() {
@@ -84,10 +108,6 @@ export class ParserService {
   }
 
   async getPageContent(url) {
-    if (!this.browser) {
-      await this.initBrowser(true, process.env.NODE_ENV === 'development');
-    }
-
     try {
       await this.newPage();
       await this.page.goto(url, { waitUntil: 'domcontentloaded' });

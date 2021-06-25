@@ -166,4 +166,10 @@ export class ProductService {
     }
     return product;
   }
+
+  async update(product) {
+    const updateProduct = await this.productModel.findByIdAndUpdate(product._id, product);
+    console.log(updateProduct, product);
+    return updateProduct;
+  }
 }

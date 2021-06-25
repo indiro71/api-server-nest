@@ -13,4 +13,9 @@ export class PriceService {
     const prices = await this.priceModel.find().where('good').equals(id);
     return prices;
   }
+
+  async create(price, good): Promise<Price> {
+    const newPrice = await this.priceModel.create({price, good})
+    return newPrice;
+  }
 }

@@ -24,5 +24,6 @@ import { SubscribeModule } from '../subscribe/subscribe.module';
     RoleModule,
     SubscribeModule,
   ],
+  exports: [ProductService]
 })
 export class ProductModule {}
