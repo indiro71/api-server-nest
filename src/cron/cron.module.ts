@@ -8,6 +8,12 @@ import { SubscribeModule } from '../scanprices/subscribe/subscribe.module';
 
 @Module({
   providers: [CronService],
-  imports: [ParserModule, ProductModule, ShopModule, PriceModule, SubscribeModule],
+  imports: [
+    ParserModule,
+    ProductModule,
+    ShopModule,
+    PriceModule,
+    SubscribeModule,
+  ],
 })
 export class CronModule {}

@@ -10,7 +10,7 @@ export class SubscribeService {
   constructor(
     @InjectModel(Subscribe.name)
     private subscribeModel: Model<SubscribeDocument>,
-    private userService: UserService
+    private userService: UserService,
   ) {}
 
   async subscribe(subscribeDto: CreateSubscribeDto, userId: ObjectId) {
@@ -45,7 +45,9 @@ export class SubscribeService {
   }
 
   async getProductSubscribes(productId: ObjectId) {
-    const subscribes = await this.subscribeModel.find().where({good: productId});
+    const subscribes = await this.subscribeModel
+      .find()
+      .where({ good: productId });
     return subscribes;
   }
 
@@ -60,8 +62,8 @@ export class SubscribeService {
             from: process.env.EMAIL_FROM,
             subject: 'Price Alert',
             text: `Product ${product.name} currently costs ${product.currentPrice} RUB`,
-            html: `Product <i>${product.name}</i> currently costs <b>${product.currentPrice} RUB</b>`
-          }
+            html: `Product <i>${product.name}</i> currently costs <b>${product.currentPrice} RUB</b>`,
+          };
           // await sendMessage(msg);
         }
       }

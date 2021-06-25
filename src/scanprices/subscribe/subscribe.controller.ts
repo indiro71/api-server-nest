@@ -8,13 +8,13 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { SubscribeService } from './subscribe.service';
 import { ObjectId } from 'mongoose';
 import { Subscribe } from './schemas/subscribe.schema';
 import { CreateSubscribeDto } from './dto/create-subscribe.dto';
-
+@ApiTags('Subscribes')
 @Controller('/scanprices/subscribe')
 export class SubscribeController {
   constructor(private subscribeService: SubscribeService) {}

@@ -9,6 +9,7 @@ import { ParserModule } from '../../parser/parser.module';
 import { ShopModule } from '../shop/shop.module';
 import { AuthModule } from '../../auth/auth.module';
 import { RoleModule } from '../../role/role.module';
+import { StorageModule } from '../../services/storage/storage.module';
 
 @Module({
   controllers: [ProductController],
@@ -21,6 +22,7 @@ import { RoleModule } from '../../role/role.module';
     ShopModule,
     AuthModule,
     RoleModule,
+    StorageModule,
   ],
   exports: [ProductService],
 })

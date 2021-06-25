@@ -33,7 +33,10 @@ export class CronService {
 
         if (shop) {
           try {
-            const content = await this.parserService.getPageContent(productUrl, this.scanpricesPage);
+            const content = await this.parserService.getPageContent(
+              productUrl,
+              this.scanpricesPage,
+            );
             if (!content) continue;
 
             const good = this.productService.parseProductData(
@@ -49,7 +52,10 @@ export class CronService {
               ) {
                 if (good.available) {
                   if (good.currentPrice < dbGood.currentPrice) {
-                    await this.subscribeService.checkSubscribes(dbGood, good.currentPrice);
+                    await this.subscribeService.checkSubscribes(
+                      dbGood,
+                      good.currentPrice,
+                    );
                   }
                   dbGood.currentPrice = good.currentPrice;
                 }

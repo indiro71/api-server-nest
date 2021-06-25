@@ -14,7 +14,7 @@ import { UserModule } from '../../user/user.module';
       { name: Subscribe.name, schema: SubscribeSchema },
     ]),
     AuthModule,
-    UserModule
+    UserModule,
   ],
   exports: [SubscribeService],
 })

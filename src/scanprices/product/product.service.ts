@@ -1,15 +1,16 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
+import { Page } from 'puppeteer';
+import { load } from 'cheerio';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { PriceService } from '../price/price.service';
 import { Price, PriceDocument } from '../price/schemas/price.schema';
 import { ParserService } from '../../parser/parser.service';
 import { ShopService } from '../shop/shop.service';
-import { load } from 'cheerio';
 import { RoleService } from '../../role/role.service';
-import { Page } from 'puppeteer';
+import { StorageService } from '../../services/storage/storage.service';
 
 @Injectable()
 export class ProductService {
@@ -21,6 +22,7 @@ export class ProductService {
     private parserService: ParserService,
     private shopService: ShopService,
     private roleService: RoleService,
+    private storageService: StorageService,
   ) {
     this.browserPage = null;
   }
@@ -34,7 +36,16 @@ export class ProductService {
   }
 
   async create(productDto: CreateProductDto, user): Promise<Product> {
-    const product = await this.productModel.create({ ...productDto, user });
+    let image;
+    if (productDto.image && productDto.image !== '') {
+      await this.storageService.uploadFile(productDto.image);
+      image = productDto.image.split('/').pop();
+    }
+    const product = await this.productModel.create({
+      ...productDto,
+      image,
+      user,
+    });
     return product;
   }
 
@@ -100,7 +111,10 @@ export class ProductService {
     if (!this.browserPage || this.browserPage.isClosed()) {
       this.browserPage = await this.parserService.createPage();
     }
-    const content = await this.parserService.getPageContent(productUrl, this.browserPage);
+    const content = await this.parserService.getPageContent(
+      productUrl,
+      this.browserPage,
+    );
     const data = this.parseProductData(content, shop, productUrl);
 
     if (!data) {
