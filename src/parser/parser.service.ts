@@ -109,12 +109,17 @@ export class ParserService {
 
   async getPageContent(url: string, page: Page = this.page) {
     try {
+      let closeAfterParse;
       if (!page || page.isClosed()) {
+        closeAfterParse = true;
         page = await this.createPage();
       }
       await page.goto(url, { waitUntil: 'domcontentloaded' });
-      // await this.wait(3000);
-      return await page.content();
+      const content = await page.content();
+      if (closeAfterParse) {
+        await page.close()
+      }
+      return content;
     } catch (e) {
       await this.closeBrowser();
     }

@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { Page } from 'puppeteer';
 import { ParserService } from '../parser/parser.service';
 import { ProductService } from '../scanprices/product/product.service';
 import { ShopService } from '../scanprices/shop/shop.service';
 import { PriceService } from '../scanprices/price/price.service';
-import { Page } from 'puppeteer';
+import { SubscribeService } from '../scanprices/subscribe/subscribe.service';
 
 @Injectable()
 export class CronService {
@@ -14,6 +15,7 @@ export class CronService {
     private productService: ProductService,
     private shopService: ShopService,
     private priceService: PriceService,
+    private subscribeService: SubscribeService,
   ) {
     this.scanpricesPage = null;
   }
@@ -47,7 +49,7 @@ export class CronService {
               ) {
                 if (good.available) {
                   if (good.currentPrice < dbGood.currentPrice) {
-                    // await checkSubscribes(dbGood, good.currentPrice);
+                    await this.subscribeService.checkSubscribes(dbGood, good.currentPrice);
                   }
                   dbGood.currentPrice = good.currentPrice;
                 }

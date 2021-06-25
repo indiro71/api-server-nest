@@ -27,4 +27,9 @@ export class UserService {
     const user = this.userModel.findOne().where('email').equals(email);
     return user;
   }
+
+  async getUserById(userId: Object): Promise<User> {
+    const user = this.userModel.findById(userId);
+    return user;
+  }
 }
