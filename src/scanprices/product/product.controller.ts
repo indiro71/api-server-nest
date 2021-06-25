@@ -31,15 +31,7 @@ export class ProductController {
   @ApiResponse({ status: 200, type: Product })
   @UseGuards(JwtAuthGuard)
   @Post('/add')
-  create(
-    @Body()
-    {
-      product: productDto,
-    }: {
-      product: CreateProductDto;
-    },
-    @Req() request,
-  ) {
+  create(@Body() productDto: CreateProductDto, @Req() request) {
     return this.productService.create(productDto, request.user._id);
   }
 

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -29,8 +30,8 @@ export class SubscribeController {
   @ApiOperation({ summary: 'Unsubscribe on price alert' })
   @ApiResponse({ status: 200 })
   @UseGuards(JwtAuthGuard)
-  @Post('/unsubscribe')
-  unsubscribe(@Body() { productId }, @Req() request) {
+  @Delete(':id')
+  unsubscribe(@Param('id') productId: ObjectId, @Req() request) {
     return this.subscribeService.unsubscribe(productId, request.user._id);
   }
 

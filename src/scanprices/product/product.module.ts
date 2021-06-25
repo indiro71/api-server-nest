@@ -9,7 +9,6 @@ import { ParserModule } from '../../parser/parser.module';
 import { ShopModule } from '../shop/shop.module';
 import { AuthModule } from '../../auth/auth.module';
 import { RoleModule } from '../../role/role.module';
-import { SubscribeModule } from '../subscribe/subscribe.module';
 
 @Module({
   controllers: [ProductController],
@@ -22,8 +21,7 @@ import { SubscribeModule } from '../subscribe/subscribe.module';
     ShopModule,
     AuthModule,
     RoleModule,
-    SubscribeModule,
   ],
-  exports: [ProductService]
+  exports: [ProductService],
 })
 export class ProductModule {}

@@ -21,7 +21,6 @@ export class ProductService {
     private parserService: ParserService,
     private shopService: ShopService,
     private roleService: RoleService,
-    private subscribeService: SubscribeService,
   ) {}
 
   async getAll(): Promise<Product[]> {
@@ -168,7 +167,10 @@ export class ProductService {
   }
 
   async update(product) {
-    const updateProduct = await this.productModel.findByIdAndUpdate(product._id, product);
+    const updateProduct = await this.productModel.findByIdAndUpdate(
+      product._id,
+      product,
+    );
     console.log(updateProduct, product);
     return updateProduct;
   }

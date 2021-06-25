@@ -17,7 +17,6 @@ export class CronService {
   @Cron('0 * * * *')
   async scanpricesCron() {
     const dbGoods = await this.productService.getAll();
-    console.log('start');
     if (dbGoods) {
       for (const dbGood of dbGoods) {
         const productUrl = dbGood.url;
@@ -25,13 +24,20 @@ export class CronService {
 
         if (shop) {
           try {
-            const content =  await this.parserService.getPageContent(productUrl);
-            if (!content) return;
+            const content = await this.parserService.getPageContent(productUrl);
+            if (!content) continue;
 
-            const good = this.productService.parseProductData(content, shop, productUrl);
+            const good = this.productService.parseProductData(
+              content,
+              shop,
+              productUrl,
+            );
 
             if (good) {
-              if (good.currentPrice !== dbGood.currentPrice && good.currentPrice !== 0) {
+              if (
+                good.currentPrice !== dbGood.currentPrice &&
+                good.currentPrice !== 0
+              ) {
                 if (good.available) {
                   if (good.currentPrice < dbGood.currentPrice) {
                     // await checkSubscribes(dbGood, good.currentPrice);
@@ -43,7 +49,10 @@ export class CronService {
                 dbGood.available = good.available;
 
                 if (good.currentPrice !== 0) {
-                  await this.priceService.create(good.currentPrice, dbGood._id);
+                  await this.priceService.create({
+                    price: good.currentPrice,
+                    good: dbGood._id,
+                  });
 
                   if (good.currentPrice < dbGood.minPrice) {
                     dbGood.minPrice = good.currentPrice;
@@ -59,11 +68,9 @@ export class CronService {
           } catch (e) {
             console.log(e);
           }
-          console.log('end');
           await this.parserService.closeBrowser();
         }
       }
-      console.log('tut');
       await this.parserService.closeBrowser();
     }
   }

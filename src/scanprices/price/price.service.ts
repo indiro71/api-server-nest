@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { Price, PriceDocument } from './schemas/price.schema';
+import { CreatePriceDto } from './dto/create-price.dto';
 
 @Injectable()
 export class PriceService {
@@ -14,8 +15,8 @@ export class PriceService {
     return prices;
   }
 
-  async create(price, good): Promise<Price> {
-    const newPrice = await this.priceModel.create({price, good})
+  async create(priceDto: CreatePriceDto): Promise<Price> {
+    const newPrice = await this.priceModel.create({ ...priceDto });
     return newPrice;
   }
 }

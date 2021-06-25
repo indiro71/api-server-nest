@@ -7,10 +7,6 @@ import { PriceModule } from '../scanprices/price/price.module';
 
 @Module({
   providers: [CronService],
-  imports: [
-    ParserModule,
-    ProductModule,
-    ShopModule,
-    PriceModule]
+  imports: [ParserModule, ProductModule, ShopModule, PriceModule],
 })
 export class CronModule {}

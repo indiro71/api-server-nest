@@ -20,7 +20,7 @@ import { CronService } from './cron/cron.service';
     ScanpricesModule,
     RoleModule,
     AuthModule,
-    ParserModule
+    ParserModule,
   ],
   providers: [CronService],
 })
