@@ -16,7 +16,7 @@ export class SubscribeService {
   async subscribe(subscribeDto: CreateSubscribeDto, userId: ObjectId) {
     const subscribe = await this.subscribeModel
       .findOne()
-      .where({ good: subscribeDto.good, user: userId });
+      .where({ product: subscribeDto.product, user: userId });
 
     if (subscribe) {
       subscribe.price = subscribeDto.price;
@@ -40,14 +40,14 @@ export class SubscribeService {
   async getSubscribeById(productId: ObjectId, userId) {
     const subscribe = await this.subscribeModel
       .findOne()
-      .where({ good: productId, user: userId });
+      .where({ product: productId, user: userId });
     return subscribe;
   }
 
   async getProductSubscribes(productId: ObjectId) {
     const subscribes = await this.subscribeModel
       .find()
-      .where({ good: productId });
+      .where({ product: productId });
     return subscribes;
   }
 

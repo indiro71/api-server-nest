@@ -36,6 +36,10 @@ export class ProductService {
   }
 
   async create(productDto: CreateProductDto, user): Promise<Product> {
+    const candidate = await this.productModel.findOne().where({name: productDto.name});
+    if (candidate) {
+      throw new HttpException('Product already exists', HttpStatus.BAD_REQUEST);
+    }
     let image;
     if (productDto.image && productDto.image !== '') {
       await this.storageService.uploadFile(productDto.image);
@@ -86,7 +90,7 @@ export class ProductService {
     for (const product of products) {
       prices[product._id] = await this.priceModel
         .find()
-        .where('good')
+        .where('product')
         .equals(product.id)
         .sort({ date: -1 })
         .limit(2);
@@ -160,7 +164,7 @@ export class ProductService {
       }
 
       if (name) {
-        const good = {
+        const product = {
           name,
           url: url,
           shop: shop._id,
@@ -170,7 +174,7 @@ export class ProductService {
           minPrice: prices.length > 0 ? Math.min.apply(null, prices) : 0,
           maxPrice: prices.length > 0 ? Math.min.apply(null, prices) : 0,
         };
-        return good;
+        return product;
       }
       return null;
     } catch (e) {

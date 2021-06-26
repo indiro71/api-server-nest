@@ -19,7 +19,7 @@ export class Subscribe {
 
   @ApiProperty({ description: 'Product' })
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Product' })
-  good: Product;
+  product: Product;
 
   @ApiProperty({ description: 'User created' })
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
