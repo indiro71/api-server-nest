@@ -46,11 +46,11 @@ export class ShopService {
   async getShopByProductUrl(productUrl: string) {
     const shops = await this.getAll();
 
-    const goodShop = shops.filter((shop) => {
+    const productShop = shops.filter((shop) => {
       return productUrl.indexOf(shop.url) !== -1;
     });
 
-    if (goodShop[0]) return goodShop[0];
+    if (productShop[0]) return productShop[0];
     return null;
   }
 }
