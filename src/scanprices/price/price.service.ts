@@ -11,7 +11,7 @@ export class PriceService {
   ) {}
 
   async getProductPrices(id: ObjectId): Promise<Price[]> {
-    const prices = await this.priceModel.find().where('good').equals(id);
+    const prices = await this.priceModel.find().where('product').equals(id);
     return prices;
   }
 

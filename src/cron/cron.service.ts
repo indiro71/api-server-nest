@@ -22,13 +22,13 @@ export class CronService {
 
   @Cron('0 * * * *')
   async scanpricesCron() {
-    const dbGoods = await this.productService.getAll();
-    if (dbGoods) {
+    const dbProducts = await this.productService.getAll();
+    if (dbProducts) {
       if (!this.scanpricesPage || this.scanpricesPage.isClosed()) {
         this.scanpricesPage = await this.parserService.createPage();
       }
-      for (const dbGood of dbGoods) {
-        const productUrl = dbGood.url;
+      for (const dbProduct of dbProducts) {
+        const productUrl = dbProduct.url;
         const shop = await this.shopService.getShopByProductUrl(productUrl);
 
         if (shop) {
@@ -39,45 +39,45 @@ export class CronService {
             );
             if (!content) continue;
 
-            const good = this.productService.parseProductData(
+            const product = this.productService.parseProductData(
               content,
               shop,
               productUrl,
             );
 
-            if (good) {
+            if (product) {
               if (
-                good.currentPrice !== dbGood.currentPrice &&
-                good.currentPrice !== 0
+                product.currentPrice !== dbProduct.currentPrice &&
+                product.currentPrice !== 0
               ) {
-                if (good.available) {
-                  if (good.currentPrice < dbGood.currentPrice) {
+                if (product.available) {
+                  if (product.currentPrice < dbProduct.currentPrice) {
                     await this.subscribeService.checkSubscribes(
-                      dbGood,
-                      good.currentPrice,
+                      dbProduct,
+                      product.currentPrice,
                     );
                   }
-                  dbGood.currentPrice = good.currentPrice;
+                  dbProduct.currentPrice = product.currentPrice;
                 }
 
-                dbGood.dateUpdate = Date.now();
-                dbGood.available = good.available;
+                dbProduct.dateUpdate = Date.now();
+                dbProduct.available = product.available;
 
-                if (good.currentPrice !== 0) {
+                if (product.currentPrice !== 0) {
                   await this.priceService.create({
-                    price: good.currentPrice,
-                    good: dbGood._id,
+                    price: product.currentPrice,
+                    product: dbProduct._id,
                   });
 
-                  if (good.currentPrice < dbGood.minPrice) {
-                    dbGood.minPrice = good.currentPrice;
+                  if (product.currentPrice < dbProduct.minPrice) {
+                    dbProduct.minPrice = product.currentPrice;
                   }
 
-                  if (good.currentPrice > dbGood.maxPrice) {
-                    dbGood.maxPrice = good.currentPrice;
+                  if (product.currentPrice > dbProduct.maxPrice) {
+                    dbProduct.maxPrice = product.currentPrice;
                   }
                 }
-                await this.productService.update(dbGood);
+                await this.productService.update(dbProduct);
               }
             }
           } catch (e) {

@@ -16,7 +16,7 @@ export class Price {
 
   @ApiProperty({ description: 'Product' })
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Product' })
-  good: Product;
+  product: Product;
 
   @ApiProperty({
     example: '1624216164414',
