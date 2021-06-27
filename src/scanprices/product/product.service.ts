@@ -44,6 +44,7 @@ export class ProductService {
     if (candidate) {
       throw new HttpException('Product already exists', HttpStatus.BAD_REQUEST);
     }
+
     let image;
     if (productDto.image && productDto.image !== '') {
       await this.storageService.uploadFile(productDto.image);
