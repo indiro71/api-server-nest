@@ -11,6 +11,7 @@ import { ParserService } from '../../parser/parser.service';
 import { ShopService } from '../shop/shop.service';
 import { RoleService } from '../../role/role.service';
 import { StorageService } from '../../services/storage/storage.service';
+import { SubscribeService } from '../subscribe/subscribe.service';
 
 @Injectable()
 export class ProductService {
@@ -19,6 +20,7 @@ export class ProductService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Price.name) private priceModel: Model<PriceDocument>,
     private priceService: PriceService,
+    private subscribeService: SubscribeService,
     private parserService: ParserService,
     private shopService: ShopService,
     private roleService: RoleService,
@@ -36,7 +38,9 @@ export class ProductService {
   }
 
   async create(productDto: CreateProductDto, user): Promise<Product> {
-    const candidate = await this.productModel.findOne().where({name: productDto.name});
+    const candidate = await this.productModel
+      .findOne()
+      .where({ name: productDto.name });
     if (candidate) {
       throw new HttpException('Product already exists', HttpStatus.BAD_REQUEST);
     }
@@ -52,7 +56,10 @@ export class ProductService {
     });
 
     if (product.currentPrice !== 0) {
-      await this.priceService.create({price: product.currentPrice, product: product._id});
+      await this.priceService.create({
+        price: product.currentPrice,
+        product: product._id,
+      });
     }
 
     return product;
@@ -192,6 +199,8 @@ export class ProductService {
     const role = await this.roleService.getRoleById(user.role);
     if (role.value === 'ADMIN' || user?._id === product?.user?.toString()) {
       await product.delete();
+      await this.priceService.deleteForProduct(product._id);
+      await this.subscribeService.deleteForProduct(product._id);
     }
     return product;
   }
