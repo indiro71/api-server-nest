@@ -50,6 +50,11 @@ export class ProductService {
       image,
       user,
     });
+
+    if (product.currentPrice !== 0) {
+      await this.priceService.create({price: product.currentPrice, product: product._id});
+    }
+
     return product;
   }
 

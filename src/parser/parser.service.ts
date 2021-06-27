@@ -8,7 +8,6 @@ interface browserOptions {
     width: number;
     height: number;
   };
-  executablePath: string;
   args: string[];
 }
 
@@ -44,7 +43,6 @@ export class ParserService {
         width: this.mobile ? 320 : 1920,
         height: this.mobile ? 570 : 1080,
       },
-      executablePath: '/usr/bin/chromium-browser',
       args: ['--no-sandbox', '--lang=en-EN,en'],
     };
 
