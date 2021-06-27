@@ -32,8 +32,7 @@ export class ProductService {
   async getAll(): Promise<Product[]> {
     const products = await this.productModel
       .find()
-      .populate('shop', 'name')
-      .select('name currentPrice url image');
+      .populate('shop', 'name');
     return products;
   }
 
@@ -211,7 +210,6 @@ export class ProductService {
       product._id,
       product,
     );
-    console.log(updateProduct, product);
     return updateProduct;
   }
 }
