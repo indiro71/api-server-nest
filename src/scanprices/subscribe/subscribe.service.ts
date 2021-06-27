@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { SendGridService } from '@anchan828/nest-sendgrid';
 import { Model, ObjectId } from 'mongoose';
 import { Subscribe, SubscribeDocument } from './schemas/subscribe.schema';
 import { CreateSubscribeDto } from './dto/create-subscribe.dto';
@@ -11,6 +12,7 @@ export class SubscribeService {
     @InjectModel(Subscribe.name)
     private subscribeModel: Model<SubscribeDocument>,
     private userService: UserService,
+    private readonly sendGridService: SendGridService,
   ) {}
 
   async subscribe(subscribeDto: CreateSubscribeDto, userId: ObjectId) {
@@ -64,7 +66,7 @@ export class SubscribeService {
             text: `Product ${product.name} currently costs ${product.currentPrice} RUB`,
             html: `Product <i>${product.name}</i> currently costs <b>${product.currentPrice} RUB</b>`,
           };
-          // await sendMessage(msg);
+          await this.sendGridService.send(msg);
         }
       }
     }
