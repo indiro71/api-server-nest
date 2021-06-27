@@ -10,6 +10,7 @@ import { ShopModule } from '../shop/shop.module';
 import { AuthModule } from '../../auth/auth.module';
 import { RoleModule } from '../../role/role.module';
 import { StorageModule } from '../../services/storage/storage.module';
+import { SubscribeModule } from '../subscribe/subscribe.module';
 
 @Module({
   controllers: [ProductController],
@@ -23,6 +24,7 @@ import { StorageModule } from '../../services/storage/storage.module';
     AuthModule,
     RoleModule,
     StorageModule,
+    SubscribeModule,
   ],
   exports: [ProductService],
 })

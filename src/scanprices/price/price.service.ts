@@ -19,4 +19,8 @@ export class PriceService {
     const newPrice = await this.priceModel.create({ ...priceDto });
     return newPrice;
   }
+
+  async deleteForProduct(product) {
+    await this.priceModel.deleteMany({ product });
+  }
 }
