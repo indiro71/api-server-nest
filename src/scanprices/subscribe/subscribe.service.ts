@@ -69,4 +69,8 @@ export class SubscribeService {
       }
     }
   }
+
+  async deleteForProduct(product) {
+    await this.subscribeModel.deleteMany({ product });
+  }
 }
