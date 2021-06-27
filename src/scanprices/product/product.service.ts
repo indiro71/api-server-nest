@@ -32,8 +32,7 @@ export class ProductService {
   async getAll(): Promise<Product[]> {
     const products = await this.productModel
       .find()
-      .populate('shop', 'name')
-      .select('name currentPrice url image');
+      .populate('shop', 'name');
     return products;
   }
 
@@ -44,6 +43,7 @@ export class ProductService {
     if (candidate) {
       throw new HttpException('Product already exists', HttpStatus.BAD_REQUEST);
     }
+
     let image;
     if (productDto.image && productDto.image !== '') {
       await this.storageService.uploadFile(productDto.image);
@@ -210,7 +210,6 @@ export class ProductService {
       product._id,
       product,
     );
-    console.log(updateProduct, product);
     return updateProduct;
   }
 }
