@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Browser, launch, Page } from 'puppeteer';
+import { Browser, launch, Page, BrowserContext } from 'puppeteer';
 import random from 'random';
 
 interface browserOptions {
@@ -15,6 +15,7 @@ interface browserOptions {
 export class ParserService {
   private browser: Browser;
   private page: Page;
+  private context: BrowserContext;
   private mobile: boolean;
   private tested: boolean;
   private readonly user_desktop_agent: string;
@@ -23,6 +24,7 @@ export class ParserService {
 
   constructor() {
     this.browser = null;
+    this.context = null;
     this.page = null;
     this.mobile = true;
     this.tested = false;
@@ -51,6 +53,8 @@ export class ParserService {
     }
 
     this.browser = await launch(options);
+
+    this.context = await this.browser.createIncognitoBrowserContext();
   }
 
   async newPage() {
@@ -59,7 +63,7 @@ export class ParserService {
     }
 
     if (!this.page) {
-      this.page = await this.browser.newPage();
+      this.page = await this.context.newPage();
     }
 
     await this.page.setExtraHTTPHeaders({
@@ -73,12 +77,12 @@ export class ParserService {
     }
   }
 
-  async createPage() {
+  async createPage(incognito = false) {
     if (!this.browser) {
       await this.initBrowser(true, process.env.NODE_ENV === 'development');
     }
 
-    const newPage: Page = await this.browser.newPage();
+    const newPage: Page = incognito ? await this.context.newPage(): await this.browser.newPage();
 
     await newPage.setExtraHTTPHeaders({
       'Accept-Language': 'en',
@@ -114,6 +118,7 @@ export class ParserService {
         closeAfterParse = true;
         page = await this.createPage();
       }
+      await page.setCacheEnabled(false);
       await page.goto(url, { waitUntil: 'domcontentloaded' });
       const content = await page.content();
       if (closeAfterParse) {

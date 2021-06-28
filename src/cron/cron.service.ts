@@ -25,7 +25,7 @@ export class CronService {
     const dbProducts = await this.productService.getAll();
     if (dbProducts) {
       if (!this.scanpricesPage || this.scanpricesPage.isClosed()) {
-        this.scanpricesPage = await this.parserService.createPage();
+        this.scanpricesPage = await this.parserService.createPage(true);
       }
       for (const dbProduct of dbProducts) {
         const productUrl = dbProduct.url;
