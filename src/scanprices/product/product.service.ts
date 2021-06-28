@@ -125,7 +125,7 @@ export class ProductService {
     }
 
     if (!this.browserPage || this.browserPage.isClosed()) {
-      this.browserPage = await this.parserService.createPage();
+      this.browserPage = await this.parserService.createPage(true);
     }
     const content = await this.parserService.getPageContent(
       productUrl,
