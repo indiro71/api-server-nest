@@ -134,7 +134,7 @@ export class ProductService {
     const data = this.parseProductData(content, shop, productUrl);
 
     if (!data) {
-      await this.parserService.closeBrowser();
+      await this.browserPage.close();
       throw new HttpException('Error scan', HttpStatus.BAD_REQUEST);
     }
 
