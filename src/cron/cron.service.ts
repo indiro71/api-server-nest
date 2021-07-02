@@ -86,6 +86,7 @@ export class CronService {
         }
       }
       await this.scanpricesPage.close();
+      await this.parserService.closeBrowser();
     }
   }
 }

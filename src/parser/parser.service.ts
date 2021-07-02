@@ -37,7 +37,7 @@ export class ParserService {
 
   async initBrowser(mobile = true, tested = false) {
     this.mobile = mobile;
-    this.tested = tested;
+    this.tested = process.env.NODE_ENV === 'development';
 
     const options: browserOptions = {
       headless: !this.tested,
@@ -78,8 +78,8 @@ export class ParserService {
   }
 
   async createPage(incognito = false) {
-    if (!this.browser) {
-      await this.initBrowser(true, process.env.NODE_ENV === 'development');
+    if (!this.browser || this.browser.on('disconnected', this.initBrowser)) {
+      await this.initBrowser();
     }
 
     const newPage: Page = incognito ? await this.context.newPage(): await this.browser.newPage();
