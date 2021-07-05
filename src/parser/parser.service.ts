@@ -120,7 +120,9 @@ export class ParserService {
       }
       await page.setCacheEnabled(false);
       await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await this.wait(3000);
       const content = await page.content();
+      await this.wait(2000);
       if (closeAfterParse) {
         await page.close();
       }
