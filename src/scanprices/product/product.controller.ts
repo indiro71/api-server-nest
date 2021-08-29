@@ -14,6 +14,12 @@ import { ObjectId } from 'mongoose';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Product } from './schemas/product.schema';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { Price } from '../price/schemas/price.schema';
+
+interface ProductData {
+  product: Product;
+  prices: Price[];
+}
 
 @ApiTags('Product')
 @Controller('/scanprices/products')
@@ -60,7 +66,7 @@ export class ProductController {
   @ApiOperation({ summary: 'Get product by id' })
   @ApiResponse({ status: 200, type: Product })
   @Get(':id')
-  getById(@Param('id') id: ObjectId) {
+  getProductByById(@Param('id') id: ObjectId): Promise<ProductData> {
     return this.productService.getInfoByProductId(id);
   }
 

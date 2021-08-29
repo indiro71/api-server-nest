@@ -115,14 +115,12 @@ export class ParserService {
     try {
       let closeAfterParse;
       if (!page || page.isClosed()) {
-        closeAfterParse = true;
         page = await this.createPage();
       }
-      await page.setCacheEnabled(false);
       await page.goto(url, { waitUntil: 'domcontentloaded' });
-      await this.wait(3000);
+      await page.waitFor(3000);
       const content = await page.content();
-      await this.wait(2000);
+      await page.waitFor(3000);
       if (closeAfterParse) {
         await page.close();
       }
