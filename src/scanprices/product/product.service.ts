@@ -13,6 +13,11 @@ import { RoleService } from '../../role/role.service';
 import { StorageService } from '../../services/storage/storage.service';
 import { SubscribeService } from '../subscribe/subscribe.service';
 
+interface ProductData {
+  product: Product;
+  prices: Price[];
+}
+
 @Injectable()
 export class ProductService {
   private browserPage: Page;
@@ -65,7 +70,7 @@ export class ProductService {
     return product;
   }
 
-  async getById(id: ObjectId): Promise<Product> {
+  async getProductById(id: ObjectId): Promise<Product> {
     const product = await this.productModel
       .findById(id)
       .populate('shop', 'name');
@@ -75,11 +80,11 @@ export class ProductService {
     return product;
   }
 
-  async getInfoByProductId(id: ObjectId): Promise<any> {
-    const params = await this.getById(id);
+  async getInfoByProductId(id: ObjectId): Promise<ProductData> {
+    const product = await this.getProductById(id);
     const prices = await this.priceService.getProductPrices(id);
     return {
-      params,
+      product,
       prices,
     };
   }
