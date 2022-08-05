@@ -212,10 +212,7 @@ export class ProductService {
   }
 
   async update(product) {
-    const updateProduct = await this.productModel.findByIdAndUpdate(
-      product._id,
-      product,
-    );
+    const updateProduct = await this.productModel.updateOne({_id :product._id}, {$set: product})
     return updateProduct;
   }
 }
