@@ -51,12 +51,12 @@ export class CronService {
                 product.currentPrice !== 0
               ) {
                 if (product.available) {
-                  if (product.currentPrice < dbProduct.currentPrice) {
-                    await this.subscribeService.checkSubscribes(
-                      dbProduct,
-                      product.currentPrice,
-                    );
-                  }
+                  // if (product.currentPrice < dbProduct.currentPrice) {
+                  //   await this.subscribeService.checkSubscribes(
+                  //     dbProduct,
+                  //     product.currentPrice,
+                  //   );
+                  // }
                   dbProduct.currentPrice = product.currentPrice;
                 }
 
