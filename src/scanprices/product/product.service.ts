@@ -12,6 +12,7 @@ import { ShopService } from '../shop/shop.service';
 import { RoleService } from '../../role/role.service';
 import { StorageService } from '../../services/storage/storage.service';
 import { SubscribeService } from '../subscribe/subscribe.service';
+import { LoggerService } from 'nest-logger';
 
 interface ProductData {
   product: Product;
@@ -30,6 +31,7 @@ export class ProductService {
     private shopService: ShopService,
     private roleService: RoleService,
     private storageService: StorageService,
+    private logger: LoggerService
   ) {
     this.browserPage = null;
   }
@@ -129,24 +131,28 @@ export class ProductService {
       throw new HttpException('Shop not found', HttpStatus.BAD_REQUEST);
     }
 
-    if (!this.browserPage || this.browserPage.isClosed()) {
-      this.browserPage = await this.parserService.createPage(true);
+    try {
+        this.logger.info('Scan product by url ' + productUrl);
+        if (!this.browserPage || this.browserPage.isClosed()) {
+            this.browserPage = await this.parserService.createPage(true);
+        }
+        const content = await this.parserService.getPageContent(
+            productUrl,
+            this.browserPage,
+        );
+        const data = this.parseProductData(content, shop, productUrl);
+
+        if (!data) {
+            throw new HttpException('Error scan', HttpStatus.BAD_REQUEST);
+        }
+
+        await this.browserPage.close();
+        await this.parserService.closeBrowser();
+
+        return data;
+    } catch (e) {
+        this.logger.error('Error scan product by url ' + productUrl, e.message);
     }
-    const content = await this.parserService.getPageContent(
-      productUrl,
-      this.browserPage,
-    );
-    const data = this.parseProductData(content, shop, productUrl);
-
-    if (!data) {
-
-      throw new HttpException('Error scan', HttpStatus.BAD_REQUEST);
-    }
-
-    await this.browserPage.close();
-    await this.parserService.closeBrowser();
-
-    return data;
   }
 
   parseProductData(content, shop, url: string) {
@@ -196,7 +202,7 @@ export class ProductService {
       }
       return null;
     } catch (e) {
-      console.log(e);
+      this.logger.error('Error parse product by url ' + url, e.message);
     }
   }
 

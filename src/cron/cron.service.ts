@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { LoggerService } from "nest-logger";
 import { Page } from 'puppeteer';
 import { ParserService } from '../parser/parser.service';
 import { ProductService } from '../scanprices/product/product.service';
@@ -16,12 +17,14 @@ export class CronService {
     private shopService: ShopService,
     private priceService: PriceService,
     private subscribeService: SubscribeService,
+    private logger: LoggerService
   ) {
     this.scanpricesPage = null;
   }
 
   @Cron('0 * * * *')
   async scanpricesCron() {
+    this.logger.info('ScanpricesCron was started');
     const dbProducts = await this.productService.getAll();
     if (dbProducts) {
       if (!this.scanpricesPage || this.scanpricesPage.isClosed()) {
@@ -81,12 +84,13 @@ export class CronService {
               }
             }
           } catch (e) {
-            console.log(e);
+            this.logger.error('ScanpricesCron error', e.message);
           }
         }
       }
       await this.scanpricesPage.close();
       await this.parserService.closeBrowser();
     }
+    this.logger.info('ScanpricesCron was ended');
   }
 }
