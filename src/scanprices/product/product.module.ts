@@ -11,6 +11,7 @@ import { AuthModule } from '../../auth/auth.module';
 import { RoleModule } from '../../role/role.module';
 import { StorageModule } from '../../services/storage/storage.module';
 import { SubscribeModule } from '../subscribe/subscribe.module';
+import { LoggerModule } from '../../services/logger/logger.module';
 
 @Module({
   controllers: [ProductController],
@@ -25,6 +26,7 @@ import { SubscribeModule } from '../subscribe/subscribe.module';
     RoleModule,
     StorageModule,
     SubscribeModule,
+    LoggerModule
   ],
   exports: [ProductService],
 })
