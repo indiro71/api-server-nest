@@ -1,4 +1,3 @@
-import path from 'path';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
@@ -12,6 +11,7 @@ import { ParserModule } from './parser/parser.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronService } from './cron/cron.service';
 import { ServicesModule } from './services/services.module';
+import { join } from 'path';
 
 @Module({
   imports: [
@@ -21,7 +21,7 @@ import { ServicesModule } from './services/services.module';
     }),
     MongooseModule.forRoot(process.env.MONGODB_URI),
     ServeStaticModule.forRoot({
-      rootPath: path.resolve(__dirname, 'logs'),
+      rootPath: join(__dirname, 'logs'),
       serveRoot: '/logs'
     }),
     SendGridModule.forRoot({
