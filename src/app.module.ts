@@ -21,7 +21,7 @@ import { join } from 'path';
     }),
     MongooseModule.forRoot(process.env.MONGODB_URI),
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'logs'),
+      rootPath: join(__dirname, '..', 'dist/logs'),
       serveRoot: '/logs'
     }),
     SendGridModule.forRoot({
