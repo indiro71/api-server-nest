@@ -12,6 +12,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { CronService } from './cron/cron.service';
 import { ServicesModule } from './services/services.module';
 import { join } from 'path';
+import { TradingModule } from './trading/trading.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { join } from 'path';
     RoleModule,
     AuthModule,
     ParserModule,
-    ServicesModule
+    ServicesModule,
+    TradingModule
   ],
   providers: [CronService],
 })
