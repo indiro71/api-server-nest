@@ -7,6 +7,7 @@ import { ProductService } from '../scanprices/product/product.service';
 import { ShopService } from '../scanprices/shop/shop.service';
 import { PriceService } from '../scanprices/price/price.service';
 import { SubscribeService } from '../scanprices/subscribe/subscribe.service';
+import { TradingService } from '../trading/trading.service';
 
 @Injectable()
 export class CronService {
@@ -17,12 +18,13 @@ export class CronService {
     private shopService: ShopService,
     private priceService: PriceService,
     private subscribeService: SubscribeService,
-    private logger: LoggerService
+    private logger: LoggerService,
+    private tradingService: TradingService,
   ) {
     this.scanpricesPage = null;
   }
 
-  @Cron('0 * * * *')
+  // @Cron('0 * * * *')
   async scanpricesCron() {
     this.logger.info('ScanpricesCron was started');
     const dbProducts = await this.productService.getAll();
@@ -98,5 +100,14 @@ export class CronService {
       await this.parserService.closeBrowser();
     }
     this.logger.info('ScanpricesCron was ended');
+  }
+
+  @Cron('*/5 * * * * *')
+  async tradingCron() {
+    try {
+      await this.tradingService.monitoring();
+    } catch (e) {
+      this.logger.error('TradingCron error', e.message);
+    }
   }
 }
