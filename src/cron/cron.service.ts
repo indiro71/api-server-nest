@@ -103,9 +103,18 @@ export class CronService {
   }
 
   @Cron('*/5 * * * * *')
-  async tradingCron() {
+  async tradingCronMonitoring() {
     try {
       await this.tradingService.monitoring();
+    } catch (e) {
+      this.logger.error('TradingCron error', e.message);
+    }
+  }
+
+  @Cron('*/5 * * * *')
+  async tradingCronCheckMissedOrders() {
+    try {
+      await this.tradingService.checkMissedOrders();
     } catch (e) {
       this.logger.error('TradingCron error', e.message);
     }

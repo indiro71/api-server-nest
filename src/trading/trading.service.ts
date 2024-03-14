@@ -15,6 +15,52 @@ export class TradingService {
     this.isTraded = false;
   }
 
+  async checkMissedOrders() {
+    const currencies = await this.currencyService.getAll();
+
+    if (currencies?.length > 0) {
+      try {
+        for (const currency of currencies) {
+          const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
+          const minimumFindPrice = currencyCurrentPrice - currency.step * 2;
+
+          const order = await this.orderService.getMissedOrderByPrice(minimumFindPrice);
+          if (order && !this.isTraded) {
+            let alertMessage = `❔ ${currencyCurrentPrice} - Цена ${currency.name}`;
+
+            alertMessage = `${alertMessage} \n Найден не проведенный ордер.`
+            try {
+              process.env.NODE_ENV === 'development' && console.log('missed order', currencyCurrentPrice, currency.lastValue)
+
+              this.isTraded = true;
+              const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, currencyCurrentPrice);
+              if (sellData) {
+                order.sold = true;
+                order.sellPrice = sellData?.price || currencyCurrentPrice;
+                order.dateSell = new Date();
+                order.sellResult = JSON.stringify(sellData)
+
+                const updateOrderData = await this.orderService.update(order._id, order);
+
+                if (updateOrderData) {
+                  alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} пропущенных монет по цене ${sellData?.price}$`
+                }
+              }
+            } catch (e) {
+              alertMessage = `${alertMessage} \nПродажа не получилась по причине: ${e.message}`;
+            } finally {
+              this.isTraded = false;
+            }
+            await this.telegramService.sendMessage(alertMessage);
+          }
+        }
+      } catch (err) {
+        console.error(err?.message);
+        await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+      }
+    }
+  }
+
   async monitoring() {
     const currencies = await this.currencyService.getAll();
 
