@@ -17,7 +17,11 @@ export class OrderService {
 
   async getActiveOrderByPrice(buyPrice: number): Promise<Order> {
     const order = await this.orderModel.findOne().where({ buyPrice, sold: false });
-    // const order = await this.orderModel.findOne().where({ buyPrice: { $lte: buyPrice }, sold: false });
+    return order;
+  }
+
+  async getMissedOrderByPrice(buyPrice: number): Promise<Order> {
+    const order = await this.orderModel.findOne().where({ buyPrice: { $lte: buyPrice }, sold: false });
     return order;
   }
 
