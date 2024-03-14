@@ -29,15 +29,15 @@ export class MxcService {
     return response.data.price;
   }
 
-  async buyOrder(symbol: string, quantity: number) {
-    const price = await this.getCurrencyPrice(symbol);
-    const data = await this.newOrder(symbol, quantity, price, 'BUY', false)
+  async buyOrder(symbol: string, quantity: number, buyPrice?: number) {
+    const price = buyPrice || await this.getCurrencyPrice(symbol);
+    const data = await this.newOrder(symbol, quantity, price, 'BUY', process.env.NODE_ENV === 'development')
     return data;
   }
 
-  async sellOrder(symbol: string, quantity: number) {
-    const price = await this.getCurrencyPrice(symbol);
-    const data = await this.newOrder(symbol, quantity, price, 'SELL', false)
+  async sellOrder(symbol: string, quantity: number, sellPrice?: number) {
+    const price = sellPrice || await this.getCurrencyPrice(symbol);
+    const data = await this.newOrder(symbol, quantity, price, 'SELL', process.env.NODE_ENV === 'development')
     return data;
   }
 
@@ -63,6 +63,8 @@ export class MxcService {
       price: price,
       timestamp: timestamp
     };
+
+    process.env.NODE_ENV === 'development' && console.log(`New order ${side}`, data)
 
     const dataString = Object.keys(data)
         .map(key => `${key}=${encodeURIComponent(data[key])}`)

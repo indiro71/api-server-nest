@@ -102,7 +102,7 @@ export class CronService {
     this.logger.info('ScanpricesCron was ended');
   }
 
-  @Cron('*/5 * * * * *')
+  @Cron('*/3 * * * * *')
   async tradingCron() {
     try {
       await this.tradingService.monitoring();
