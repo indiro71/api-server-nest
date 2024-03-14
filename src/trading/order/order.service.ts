@@ -20,6 +20,11 @@ export class OrderService {
     return order;
   }
 
+  async getMissedOrderByPrice(buyPrice: number): Promise<Order> {
+    const order = await this.orderModel.findOne().where({ buyPrice: { $lte: buyPrice }, sold: false });
+    return order;
+  }
+
   async update(id: ObjectId, dto: CreateOrderDto): Promise<Order> {
     const order = await this.orderModel.findByIdAndUpdate(id, dto);
     return order;
