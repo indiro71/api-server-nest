@@ -1,10 +1,9 @@
 import { Injectable, HttpService } from '@nestjs/common';
-import { TelegramService } from '../telegram/telegram.service';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class MxcService {
-  constructor(private httpService: HttpService, private readonly telegramService: TelegramService) {}
+  constructor(private httpService: HttpService) {}
 
   headers = {
     'X-MEXC-APIKEY': process.env.MEXC_API_KEY,
