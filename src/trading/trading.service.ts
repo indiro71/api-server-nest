@@ -58,7 +58,7 @@ export class TradingService {
 
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
-    this.initialStats = inStats;
+    this.initialStats = {...inStats};
     this.inited();
     this.listenTg();
   }
@@ -139,11 +139,14 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/clearstat/, async () => {
       await this.clearStatistics();
     });
+    await this.telegramService.bot.onText(/\/clearallstat/, async () => {
+      await this.clearStatisticsAll();
+    });
   }
 
   async sendStatistics() {
     let message = 'Статистика по проданным монетам: \n';
-    const statisticMessage = message + Object.keys(this.initialStats).map(stepPrice => `${stepPrice}: ${this.initialStats[stepPrice].count} (k-${this.initialStats[stepPrice].count * this.initialStats[stepPrice].coefficient})`).join('\n');
+    const statisticMessage = message + Object.keys(this.initialStats).map(stepPrice => `${stepPrice}: ${this.initialStats[stepPrice].count} (k-${this.initialStats[stepPrice].count * this.initialStats[stepPrice].coefficient}) | ${this.initialStats[stepPrice].lastValue}$`).join('\n');
     await this.telegramService.sendMessage(statisticMessage);
   }
 
@@ -154,6 +157,16 @@ export class TradingService {
       priceData.count = 0;
     })
     await this.telegramService.sendMessage("Статистика обнулена");
+  }
+
+  async clearStatisticsAll() {
+    await this.sendStatistics();
+    stepPrices.forEach(stepPrice => {
+      const priceData = this.initialStats[`${stepPrice}`];
+      priceData.count = 0;
+      priceData.lastValue = 0;
+    })
+    await this.telegramService.sendMessage("Статистика полностью обнулена");
   }
 
   async monitoring() {
