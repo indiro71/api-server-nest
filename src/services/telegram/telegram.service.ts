@@ -17,4 +17,15 @@ export class TelegramService {
       throw error;
     }
   }
+
+  async listenMessage(text: RegExp, fn: () => Promise<void>): Promise<any> {
+    try {
+      this.bot.onText(text, () => {
+        fn();
+      });
+    } catch (error) {
+      console.error('Error listen message to Telegram:', error);
+      throw error;
+    }
+  }
 }

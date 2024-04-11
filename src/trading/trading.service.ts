@@ -7,12 +7,56 @@ import { OrderService } from './order/order.service';
 import { Order } from './order/schemas/order.schema';
 import { CreateOrderDto } from './order/dto/create-order.dto';
 
+const inStats = {
+  '0.0005': {
+    count: 0,
+    coefficient: 1,
+    lastValue: 0
+  },
+  '0.001': {
+    count: 0,
+    coefficient: 4,
+    lastValue: 0
+  },
+  '0.002': {
+    count: 0,
+    coefficient: 16,
+    lastValue: 0
+  },
+  '0.003': {
+    count: 0,
+    coefficient: 36,
+    lastValue: 0
+  },
+  '0.004': {
+    count: 0,
+    coefficient: 64,
+    lastValue: 0
+  },
+  '0.005': {
+    count: 0,
+    coefficient: 100,
+    lastValue: 0
+  },
+  '0.01': {
+    count: 0,
+    coefficient: 400,
+    lastValue: 0
+  },
+}
+
 @Injectable()
 export class TradingService {
   private isTraded: boolean;
+  private initialStats: Record<string, {
+    count: number,
+    coefficient: number,
+    lastValue: number
+  }>;
 
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
+    this.initialStats = inStats;
   }
 
   async checkMissedOrders() {
@@ -61,13 +105,49 @@ export class TradingService {
     }
   }
 
+  async statistics(currencyCurrentPrice: number) {
+    const stepPrices = [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.01];
+    stepPrices.forEach(stepPrice => {
+      const priceData = this.initialStats[`${stepPrice}`];
+      if (priceData.lastValue === 0) {
+        priceData.lastValue = +currencyCurrentPrice;
+      } else {
+        const difference = currencyCurrentPrice - priceData.lastValue;
+        if (Math.abs(difference) >= stepPrice) {
+          if (difference > 0) {
+            priceData.count = priceData.count + 1;
+            priceData.lastValue = +(priceData.lastValue + stepPrice).toFixed(6);
+          } else {
+            priceData.lastValue = +(priceData.lastValue - stepPrice).toFixed(6);
+          }
+        }
+      }
+
+    })
+  }
+
+  async listenTg() {
+    this.telegramService.listenMessage(/\/stat/, this.sendStatistics);
+  }
+
+  async sendStatistics() {
+    let message = 'Статистика по проданным монетам: \n';
+    const statisticMessage = message + Object.keys(this.initialStats).map(stepPrice => `${stepPrice}: ${this.initialStats[stepPrice].count} (k-${this.initialStats[stepPrice].count * this.initialStats[stepPrice].coefficient})`).join('\n');
+    await this.telegramService.sendMessage(statisticMessage);
+  }
+
+  async clearStatistics() {
+    this.initialStats = inStats;
+    await this.telegramService.sendMessage("Статистика обнулена");
+  }
+
   async monitoring() {
     const currencies = await this.currencyService.getAll();
-
     if (currencies?.length > 0) {
       try {
         for (const currency of currencies) {
           const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
+          this.statistics(currencyCurrentPrice);
           const difference = currencyCurrentPrice - currency.lastValue;
           const differenceAbs = Math.abs(+difference.toFixed(6));
 
