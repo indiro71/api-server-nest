@@ -32,6 +32,12 @@ export class Currency {
   })
   lastValue: number;
 
+  @ApiProperty({ example: 0.160, description: 'Maximum trading price' })
+  @Prop({
+    required: true,
+  })
+  maxTradePrice: number;
+
   @ApiProperty({ example: 50, description: 'Purchase quantity' })
   @Prop({
     required: true,

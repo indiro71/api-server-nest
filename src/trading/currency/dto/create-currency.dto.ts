@@ -15,6 +15,9 @@ export class CreateCurrencyDto {
   @ApiProperty({ example: 0.140, description: 'Last value' })
   readonly lastValue: number;
 
+  @ApiProperty({ example: 0.160, description: 'Maximum trading price' })
+  readonly maxTradePrice: number;
+
   @ApiProperty({ example: 50, description: 'Purchase quantity' })
   readonly purchaseQuantity: number;
 }
