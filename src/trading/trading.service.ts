@@ -1,11 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { MxcService } from '../services/mxc/mxc.service';
 import { CurrencyService } from './currency/currency.service';
-import { Currency } from './currency/schemas/currency.schema';
 import { TelegramService } from '../services/telegram/telegram.service';
 import { OrderService } from './order/order.service';
-import { Order } from './order/schemas/order.schema';
 import { CreateOrderDto } from './order/dto/create-order.dto';
+
+/* tg commands---------------
+
+stat - All statistics
+moneystat - Money statistics
+diffstat - Different statistics
+
+ */
+
+const initialDiffStats = [];
+for (let i = 0; i<20; i++) {
+  const stat = {
+    price: (0.150 + (0.0001 * i)).toFixed(4),
+    count: 0,
+    lastValue: (0.150 + (0.0001 * i)).toFixed(4)
+  }
+  initialDiffStats.push(stat);
+}
 
 const inStats = {
   '0.0005': {
@@ -55,10 +71,16 @@ export class TradingService {
     coefficient: number,
     lastValue: number
   }>;
+  private diffStats: {
+    count: number,
+    price: number,
+    lastValue: number
+  }[];
 
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
     this.initialStats = {...inStats};
+    this.diffStats = [...initialDiffStats];
     this.inited();
     this.listenTg();
   }
@@ -70,7 +92,7 @@ export class TradingService {
       try {
         for (const currency of currencies) {
           const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
-          const minimumFindPrice = currencyCurrentPrice - currency.step * 2;
+          const minimumFindPrice = currencyCurrentPrice - currency.step; //  * 2
 
           const order = await this.orderService.getMissedOrderByPrice(minimumFindPrice);
           if (order && !this.isTraded) {
@@ -125,7 +147,19 @@ export class TradingService {
           }
         }
       }
-    })
+    });
+
+    this.diffStats.forEach(diff => {
+      const difference = currencyCurrentPrice - diff.lastValue;
+      if (Math.abs(difference) >= 0.002) {
+        if (difference > 0) {
+          diff.count = diff.count + 1;
+          diff.lastValue = +(diff.lastValue + 0.002).toFixed(4);
+        } else {
+          diff.lastValue = +(diff.lastValue - 0.002).toFixed(4);
+        }
+      }
+    });
   }
 
   async inited() {
@@ -136,6 +170,12 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/stat/, async () => {
       await this.sendStatistics();
     });
+    await this.telegramService.bot.onText(/\/moneystat/, async () => {
+      await this.sendMoneyStatistics();
+    });
+    await this.telegramService.bot.onText(/\/diffstat/, async () => {
+      await this.sendDiffStatistics();
+    });
     await this.telegramService.bot.onText(/\/clearstat/, async () => {
       await this.clearStatistics();
     });
@@ -144,10 +184,33 @@ export class TradingService {
     });
   }
 
-  async sendStatistics() {
+  moneyStat() {
     let message = 'Статистика по проданным монетам: \n';
     const statisticMessage = message + Object.keys(this.initialStats).map(stepPrice => `${stepPrice}: ${this.initialStats[stepPrice].count} (k-${this.initialStats[stepPrice].count * this.initialStats[stepPrice].coefficient}) | ${this.initialStats[stepPrice].lastValue}$`).join('\n');
-    await this.telegramService.sendMessage(statisticMessage);
+    return statisticMessage;
+  }
+
+  diffStat() {
+    let diffMessage = 'Статистика по интервалам: \n';
+    const diffStatisticMessage = diffMessage + this.diffStats.map(d => `${d.price}: ${d.count} | ${d.lastValue}`).join('\n');
+    const diffArrString = '\n' + this.diffStats.map(d => d.count).join(' ');
+    return diffStatisticMessage + diffArrString;
+  }
+
+  async sendStatistics() {
+    const moneyMessage = this.moneyStat();
+    const diffMessage = this.diffStat();
+    await this.telegramService.sendMessage(moneyMessage + '\n \n' + diffMessage);
+  }
+
+  async sendMoneyStatistics() {
+    const moneyMessage = this.moneyStat();
+    await this.telegramService.sendMessage(moneyMessage);
+  }
+
+  async sendDiffStatistics() {
+    const diffMessage = this.diffStat();
+    await this.telegramService.sendMessage(diffMessage);
   }
 
   async clearStatistics() {
@@ -155,7 +218,12 @@ export class TradingService {
     stepPrices.forEach(stepPrice => {
       const priceData = this.initialStats[`${stepPrice}`];
       priceData.count = 0;
-    })
+    });
+
+    this.diffStats.forEach(diff => {
+      diff.count = 0;
+    });
+
     await this.telegramService.sendMessage("Статистика обнулена");
   }
 
@@ -165,7 +233,12 @@ export class TradingService {
       const priceData = this.initialStats[`${stepPrice}`];
       priceData.count = 0;
       priceData.lastValue = 0;
-    })
+    });
+
+    this.diffStats.forEach(diff => {
+      diff.count = 0;
+    });
+
     await this.telegramService.sendMessage("Статистика полностью обнулена");
   }
 
@@ -220,7 +293,7 @@ export class TradingService {
               process.env.NODE_ENV === 'development' && console.log(3,difference, 'buy')
 
               const order = await this.orderService.getActiveOrderByPrice(newLastValue);
-              if (!order && !this.isTraded) {
+              if (!order && !this.isTraded && currencyCurrentPrice < currency.maxTradePrice) {
                 try {
                   this.isTraded = true;
                   const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, newLastValue);
@@ -264,6 +337,7 @@ export class TradingService {
         symbol: 'KASUSDT',
         step: 0.001,
         lastValue: 0.140,
+        maxTradePrice: 0.160,
         purchaseQuantity: 50
       })
     }
