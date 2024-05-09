@@ -10,6 +10,9 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 stat - All statistics
 moneystat - Money statistics
 diffstat - Different statistics
+dailyprofit - Show daily profit
+lastvalue - Set last value
+setquantity - Set purchase quantity
 
  */
 
@@ -66,6 +69,8 @@ const stepPrices = [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.01];
 @Injectable()
 export class TradingService {
   private isTraded: boolean;
+  private dailyProfit: number;
+  private dailyTransactions: number;
   private initialStats: Record<string, {
     count: number,
     coefficient: number,
@@ -79,6 +84,8 @@ export class TradingService {
 
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
+    this.dailyProfit = 0;
+    this.dailyTransactions = 0;
     this.initialStats = {...inStats};
     this.diffStats = [...initialDiffStats];
     this.inited();
@@ -98,7 +105,7 @@ export class TradingService {
           if (order && !this.isTraded) {
             let alertMessage = `❔ ${currencyCurrentPrice} - Цена ${currency.name}`;
 
-            alertMessage = `${alertMessage} \n Найден не проведенный ордер.`
+            alertMessage = `${alertMessage} \n Найден не проведенный ордер, купленный по цене ${order?.buyPrice}.`
             try {
               process.env.NODE_ENV === 'development' && console.log('missed order', currencyCurrentPrice, currency.lastValue)
 
@@ -113,7 +120,11 @@ export class TradingService {
                 const updateOrderData = await this.orderService.update(order._id, order);
 
                 if (updateOrderData) {
-                  alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} пропущенных монет по цене ${sellData?.price}$`
+                  alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`;
+                  const profit = (sellData?.price - order?.buyPrice) * sellData?.origQty;
+                  alertMessage = `${alertMessage} \nДоход ${profit}$`;
+                  this.dailyProfit = this.dailyProfit + profit;
+                  this.dailyTransactions = this.dailyTransactions + 1;
                 }
               }
             } catch (e) {
@@ -176,12 +187,55 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/diffstat/, async () => {
       await this.sendDiffStatistics();
     });
+    await this.telegramService.bot.onText(/\/dailyprofit/, async () => {
+      await this.sendDailyProfit();
+    });
     await this.telegramService.bot.onText(/\/clearstat/, async () => {
       await this.clearStatistics();
     });
     await this.telegramService.bot.onText(/\/clearallstat/, async () => {
       await this.clearStatisticsAll();
     });
+    await this.telegramService.bot.onText(/\/lastvalue (.+)/, async (msg, match) => {
+      await this.updateLastValue(match[1]);
+    });
+    await this.telegramService.bot.onText(/\/setquantity (.+)/, async (msg, match) => {
+      await this.setQuantity(match[1]);
+    });
+  }
+
+  async updateLastValue(newValue: string) {
+    const currencies = await this.currencyService.getAll();
+    const currency = currencies[0];
+    const numberNewValue = +`0.${newValue}`;
+    if (!newValue || Math.abs((currency.lastValue - numberNewValue)) > currency.step * 3) {
+      await this.telegramService.sendMessage(`Изменение на ${numberNewValue} невозможно. Слишком большая разница`);
+    } else {
+      try {
+        currency.lastValue = numberNewValue;
+        await this.currencyService.update(currency._id, currency);
+        await this.telegramService.sendMessage(`Значение успешно изменено на ${numberNewValue}`);
+      } catch (e) {
+        await this.telegramService.sendMessage(`Ошибка изменения последней цены`);
+      }
+    }
+  }
+
+  async setQuantity(newValue: string) {
+    const currencies = await this.currencyService.getAll();
+    const currency = currencies[0];
+    const numberNewValue = +newValue;
+    if (!newValue) {
+      await this.telegramService.sendMessage(`Изменение на ${numberNewValue} невозможно.`);
+    } else {
+      try {
+        currency.purchaseQuantity = numberNewValue;
+        await this.currencyService.update(currency._id, currency);
+        await this.telegramService.sendMessage(`Значение purchaseQuantity успешно изменено на ${numberNewValue}`);
+      } catch (e) {
+        await this.telegramService.sendMessage(`Ошибка изменения purchaseQuantity`);
+      }
+    }
   }
 
   moneyStat() {
@@ -197,10 +251,20 @@ export class TradingService {
     return diffStatisticMessage + diffArrString;
   }
 
+  profitStat() {
+    return `Дневной доход: ${this.dailyProfit}$`;
+  }
+
+  transactionsStat() {
+    return `Количество транзакций: ${this.dailyTransactions}`;
+  }
+
   async sendStatistics() {
     const moneyMessage = this.moneyStat();
     const diffMessage = this.diffStat();
-    await this.telegramService.sendMessage(moneyMessage + '\n \n' + diffMessage);
+    const transactionsMessage = this.transactionsStat();
+    const profitMessage = this.profitStat();
+    await this.telegramService.sendMessage(moneyMessage + '\n \n' + diffMessage + '\n \n' + transactionsMessage + '\n \n' + profitMessage);
   }
 
   async sendMoneyStatistics() {
@@ -213,6 +277,11 @@ export class TradingService {
     await this.telegramService.sendMessage(diffMessage);
   }
 
+  async sendDailyProfit() {
+    const profitMessage = this.profitStat();
+    await this.telegramService.sendMessage(profitMessage);
+  }
+
   async clearStatistics() {
     await this.sendStatistics();
     stepPrices.forEach(stepPrice => {
@@ -223,6 +292,9 @@ export class TradingService {
     this.diffStats.forEach(diff => {
       diff.count = 0;
     });
+
+    this.dailyProfit = 0;
+    this.dailyTransactions = 0;
 
     await this.telegramService.sendMessage("Статистика обнулена");
   }
@@ -238,6 +310,9 @@ export class TradingService {
     this.diffStats.forEach(diff => {
       diff.count = 0;
     });
+
+    this.dailyProfit = 0;
+    this.dailyTransactions = 0;
 
     await this.telegramService.sendMessage("Статистика полностью обнулена");
   }
@@ -277,7 +352,11 @@ export class TradingService {
                     const updateOrderData = await this.orderService.update(order._id, order);
 
                     if (updateOrderData) {
-                      alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$`
+                      alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
+                      const profit = (sellData?.price - order?.buyPrice) * sellData?.origQty;
+                      alertMessage = `${alertMessage} \nДоход ${profit}$`;
+                      this.dailyProfit = this.dailyProfit + profit;
+                      this.dailyTransactions = this.dailyTransactions + 1;
                       process.env.NODE_ENV === 'development' && console.log(4, 'sell order', sellData)
                     }
                   }
@@ -309,7 +388,7 @@ export class TradingService {
 
                     const newOrderData = await this.orderService.create(newOrder);
                     if (newOrderData) {
-                      alertMessage = `${alertMessage} \nКуплено ${buyData?.origQty} монет по цене ${buyData?.price}$`;
+                      alertMessage = `${alertMessage} \nКуплено ${buyData?.origQty} монет по цене ${buyData?.price}$ за ${buyData?.origQty * buyData?.price}$`;
                       process.env.NODE_ENV === 'development' && console.log(4, 'buy order', buyData);
                     }
                   }
