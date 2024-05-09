@@ -120,7 +120,7 @@ export class CronService {
     }
   }
 
-  @Cron('*/5 * * * *')
+  @Cron('*/2 * * * *')
   async tradingCronCheckMissedOrders() {
     try {
       await this.tradingService.checkMissedOrders();
