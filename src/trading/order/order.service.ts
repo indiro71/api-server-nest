@@ -20,8 +20,8 @@ export class OrderService {
     return order;
   }
 
-  async getMissedOrderByPrice(buyPrice: number): Promise<Order> {
-    const order = await this.orderModel.findOne().where({ buyPrice: { $lte: buyPrice }, sold: false });
+  async getMissedOrderByPrice(buyPrice: number, id: any): Promise<Order> {
+    const order = await this.orderModel.findOne().where('currency').equals(id).where({ buyPrice: { $lte: buyPrice }, sold: false });
     return order;
   }
 

@@ -38,11 +38,41 @@ export class Currency {
   })
   maxTradePrice: number;
 
+  @ApiProperty({ example: 0, description: 'Minimum trading price' })
+  @Prop({
+    required: true,
+  })
+  minTradePrice: number;
+
   @ApiProperty({ example: 50, description: 'Purchase quantity' })
   @Prop({
     required: true,
   })
   purchaseQuantity: number;
+
+  @ApiProperty({ example: true, description: 'Currency is active' })
+  @Prop({
+    default: true,
+  })
+  isActive: boolean;
+
+  @ApiProperty({ example: true, description: 'Currency can buy' })
+  @Prop({
+    default: true,
+  })
+  canBuy: boolean;
+
+  @ApiProperty({ example: true, description: 'Currency can sell' })
+  @Prop({
+    default: true,
+  })
+  canSell: boolean;
+
+  @ApiProperty({ example: false, description: 'Currency send statistics' })
+  @Prop({
+    default: false,
+  })
+  sendStat: boolean;
 
   @ApiProperty({
     example: '1624216164414',
