@@ -18,6 +18,21 @@ export class CreateCurrencyDto {
   @ApiProperty({ example: 0.160, description: 'Maximum trading price' })
   readonly maxTradePrice: number;
 
+  @ApiProperty({ example: 0, description: 'Minimum trading price' })
+  readonly minTradePrice: number;
+
+  @ApiProperty({ example: true, description: 'Currency is active' })
+  readonly isActive: boolean;
+
+  @ApiProperty({ example: true, description: 'Currency can buy' })
+  readonly canBuy: boolean;
+
+  @ApiProperty({ example: true, description: 'Currency can sell' })
+  readonly canSell: boolean;
+
+  @ApiProperty({ example: false, description: 'Currency send statistics' })
+  readonly sendStat: boolean;
+
   @ApiProperty({ example: 50, description: 'Purchase quantity' })
   readonly purchaseQuantity: number;
 }
