@@ -16,78 +16,188 @@ setquantity - Set purchase quantity
 
  */
 
-const initialDiffStats = [];
+const initialDiffStats = {
+  'KASUSDT': [],
+  'ETCUSDT': [],
+  'MXUSDT': [],
+};
 for (let i = 0; i<20; i++) {
   const stat = {
     price: (0.150 + (0.0001 * i)).toFixed(4),
     count: 0,
     lastValue: (0.150 + (0.0001 * i)).toFixed(4)
   }
-  initialDiffStats.push(stat);
+  initialDiffStats.KASUSDT.push(stat);
+}
+
+for (let i = 0; i<20; i++) {
+  const stat = {
+    price: (35 + (0.1 * i)).toFixed(4),
+    count: 0,
+    lastValue: (35 + (0.01 * i)).toFixed(4)
+  }
+  initialDiffStats.ETCUSDT.push(stat);
+}
+
+for (let i = 0; i<20; i++) {
+  const stat = {
+    price: (10 + (0.1 * i)).toFixed(4),
+    count: 0,
+    lastValue: (10 + (0.01 * i)).toFixed(4)
+  }
+  initialDiffStats.MXUSDT.push(stat);
+}
+
+const curSteps = {
+  'KASUSDT': 0.002,
+  'ETCUSDT': 0.1,
+  'MXUSDT': 0.1,
 }
 
 const inStats = {
-  '0.0005': {
-    count: 0,
-    coefficient: 1,
-    lastValue: 0
+  'KASUSDT': {
+    '0.0005': {
+      count: 0,
+      coefficient: 1,
+      lastValue: 0
+    },
+    '0.001': {
+      count: 0,
+      coefficient: 4,
+      lastValue: 0
+    },
+    '0.002': {
+      count: 0,
+      coefficient: 16,
+      lastValue: 0
+    },
+    '0.003': {
+      count: 0,
+      coefficient: 36,
+      lastValue: 0
+    },
+    '0.004': {
+      count: 0,
+      coefficient: 64,
+      lastValue: 0
+    },
+    '0.005': {
+      count: 0,
+      coefficient: 100,
+      lastValue: 0
+    },
+    '0.01': {
+      count: 0,
+      coefficient: 400,
+      lastValue: 0
+    },
   },
-  '0.001': {
-    count: 0,
-    coefficient: 4,
-    lastValue: 0
+  'ETCUSDT': {
+    '0.05': {
+      count: 0,
+      coefficient: 1,
+      lastValue: 0
+    },
+    '0.1': {
+      count: 0,
+      coefficient: 4,
+      lastValue: 0
+    },
+    '0.2': {
+      count: 0,
+      coefficient: 16,
+      lastValue: 0
+    },
+    '0.3': {
+      count: 0,
+      coefficient: 36,
+      lastValue: 0
+    },
+    '0.4': {
+      count: 0,
+      coefficient: 64,
+      lastValue: 0
+    },
+    '0.5': {
+      count: 0,
+      coefficient: 100,
+      lastValue: 0
+    },
+    '1': {
+      count: 0,
+      coefficient: 400,
+      lastValue: 0
+    },
   },
-  '0.002': {
-    count: 0,
-    coefficient: 16,
-    lastValue: 0
-  },
-  '0.003': {
-    count: 0,
-    coefficient: 36,
-    lastValue: 0
-  },
-  '0.004': {
-    count: 0,
-    coefficient: 64,
-    lastValue: 0
-  },
-  '0.005': {
-    count: 0,
-    coefficient: 100,
-    lastValue: 0
-  },
-  '0.01': {
-    count: 0,
-    coefficient: 400,
-    lastValue: 0
-  },
+  'MXUSDT': {
+    '0.05': {
+      count: 0,
+      coefficient: 1,
+      lastValue: 0
+    },
+    '0.1': {
+      count: 0,
+      coefficient: 4,
+      lastValue: 0
+    },
+    '0.2': {
+      count: 0,
+      coefficient: 16,
+      lastValue: 0
+    },
+    '0.3': {
+      count: 0,
+      coefficient: 36,
+      lastValue: 0
+    },
+    '0.4': {
+      count: 0,
+      coefficient: 64,
+      lastValue: 0
+    },
+    '0.5': {
+      count: 0,
+      coefficient: 100,
+      lastValue: 0
+    },
+    '1': {
+      count: 0,
+      coefficient: 400,
+      lastValue: 0
+    },
+  }
 }
 
-const stepPrices = [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.01];
+type CurrencyStat = Record<string, {
+  coefficient: number,
+  count: number,
+  lastValue: number
+}>
+
+const stepPrices = {
+  'KASUSDT': [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.01],
+  'ETCUSDT': [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 1],
+  'MXUSDT': [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 1],
+};
 
 @Injectable()
 export class TradingService {
   private isTraded: boolean;
-  private dailyProfit: number;
-  private dailyTransactions: number;
-  private initialStats: Record<string, {
-    count: number,
-    coefficient: number,
-    lastValue: number
-  }>;
-  private diffStats: {
+  private dailyProfit: Record<string, number>;
+  private dailyTransactions: Record<string, number>;
+  private initialStats: Record<string, CurrencyStat>;
+  private diffStats: Record<string, {
     count: number,
     price: number,
     lastValue: number
-  }[];
+  }[]>;
 
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
-    this.dailyProfit = 0;
-    this.dailyTransactions = 0;
+    this.dailyProfit = {};
+    this.dailyTransactions = {};
     this.initialStats = {...inStats};
-    this.diffStats = [...initialDiffStats];
+    this.diffStats = {...initialDiffStats};
     this.inited();
     this.listenTg();
   }
@@ -101,8 +211,8 @@ export class TradingService {
           const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
           const minimumFindPrice = currencyCurrentPrice - currency.step; //  * 2
 
-          const order = await this.orderService.getMissedOrderByPrice(minimumFindPrice);
-          if (order && !this.isTraded) {
+          const order = await this.orderService.getMissedOrderByPrice(minimumFindPrice, currency._id);
+          if (currency.canSell && order && !this.isTraded) {
             let alertMessage = `❔ ${currencyCurrentPrice} - Цена ${currency.name}`;
 
             alertMessage = `${alertMessage} \n Найден не проведенный ордер, купленный по цене ${order?.buyPrice}.`
@@ -123,8 +233,8 @@ export class TradingService {
                   alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`;
                   const profit = (sellData?.price - order?.buyPrice) * sellData?.origQty;
                   alertMessage = `${alertMessage} \nДоход ${profit}$`;
-                  this.dailyProfit = this.dailyProfit + profit;
-                  this.dailyTransactions = this.dailyTransactions + 1;
+                  this.dailyProfit[currency.symbol] = this.dailyProfit[currency.symbol] + profit;
+                  this.dailyTransactions[currency.symbol] = this.dailyTransactions[currency.symbol] + 1;
                 }
               }
             } catch (e) {
@@ -142,9 +252,10 @@ export class TradingService {
     }
   }
 
-  async statistics(currencyCurrentPrice: number) {
-    stepPrices.forEach(stepPrice => {
-      const priceData = this.initialStats[`${stepPrice}`];
+  async statistics(currencyCurrentPrice: number, currencyName: string) {
+    stepPrices[currencyName].forEach(stepPrice => {
+      const priceData = this.initialStats[currencyName][`${stepPrice}`];
+
       if (priceData.lastValue === 0) {
         priceData.lastValue = +currencyCurrentPrice;
       } else {
@@ -160,14 +271,15 @@ export class TradingService {
       }
     });
 
-    this.diffStats.forEach(diff => {
+    this.diffStats[currencyName].forEach(diff => {
       const difference = currencyCurrentPrice - diff.lastValue;
-      if (Math.abs(difference) >= 0.002) {
+      const step = curSteps[currencyName];
+      if (Math.abs(difference) >= step) {
         if (difference > 0) {
           diff.count = diff.count + 1;
-          diff.lastValue = +(diff.lastValue + 0.002).toFixed(4);
+          diff.lastValue = +(diff.lastValue + step).toFixed(4);
         } else {
-          diff.lastValue = +(diff.lastValue - 0.002).toFixed(4);
+          diff.lastValue = +(diff.lastValue - step).toFixed(4);
         }
       }
     });
@@ -240,23 +352,44 @@ export class TradingService {
 
   moneyStat() {
     let message = 'Статистика по проданным монетам: \n';
-    const statisticMessage = message + Object.keys(this.initialStats).map(stepPrice => `${stepPrice}: ${this.initialStats[stepPrice].count} (k-${this.initialStats[stepPrice].count * this.initialStats[stepPrice].coefficient}) | ${this.initialStats[stepPrice].lastValue}$`).join('\n');
-    return statisticMessage;
+    Object.keys(this.initialStats).forEach(currency => {
+      message = `\n` + message + `\n\nМонета - ${currency}\n`;
+      message = message + Object.keys(this.initialStats[currency]).map(stepPrice => `${stepPrice}: ${this.initialStats[currency][stepPrice].count} (k-${this.initialStats[currency][stepPrice].count * this.initialStats[currency][stepPrice].coefficient}) | ${this.initialStats[currency][stepPrice].lastValue}$`).join('\n');
+    })
+    return message;
   }
 
   diffStat() {
     let diffMessage = 'Статистика по интервалам: \n';
-    const diffStatisticMessage = diffMessage + this.diffStats.map(d => `${d.price}: ${d.count} | ${d.lastValue}`).join('\n');
-    const diffArrString = '\n' + this.diffStats.map(d => d.count).join(' ');
-    return diffStatisticMessage + diffArrString;
+    Object.keys(this.diffStats).forEach(currency => {
+      diffMessage = diffMessage + `\n\nМонета - ${currency}\n`;
+      diffMessage = diffMessage + `\n` + this.diffStats[currency].map(d => `${d.price}: ${d.count} | ${d.lastValue}`).join('\n');
+      diffMessage = diffMessage + `\n` + this.diffStats[currency].map(d => d.count).join(' ');
+    })
+
+    return diffMessage;
   }
 
   profitStat() {
-    return `Дневной доход: ${this.dailyProfit}$`;
+    let profit = 0;
+    let message = '';
+    const currencies = Object.keys(this.dailyProfit);
+    currencies?.length > 0 && currencies.forEach(currency => {
+      message = message + `Доход ${currency}: ${this.dailyProfit[currency]}$\n`;
+      profit = profit + this.dailyProfit[currency];
+    })
+    return `Дневной доход: ${profit}$\n` + message;
   }
 
   transactionsStat() {
-    return `Количество транзакций: ${this.dailyTransactions}`;
+    let transactions = 0;
+    let message = '';
+    const currencies = Object.keys(this.dailyTransactions);
+    currencies?.length > 0 && currencies.forEach(currency => {
+      message = message + `Транзакций ${currency}: ${this.dailyTransactions[currency]}\n`;
+      transactions = transactions + this.dailyTransactions[currency];
+    })
+    return `Количество транзакций: ${transactions}\n` + message;
   }
 
   async sendStatistics() {
@@ -284,35 +417,39 @@ export class TradingService {
 
   async clearStatistics() {
     await this.sendStatistics();
-    stepPrices.forEach(stepPrice => {
-      const priceData = this.initialStats[`${stepPrice}`];
-      priceData.count = 0;
-    });
+    Object.keys(stepPrices).forEach(currency => {
+      stepPrices[currency].forEach(stepPrice => {
+        const priceData = this.initialStats[currency][`${stepPrice}`];
+        priceData.count = 0;
+      });
 
-    this.diffStats.forEach(diff => {
-      diff.count = 0;
-    });
+      this.diffStats[currency].forEach(diff => {
+        diff.count = 0;
+      });
+    })
 
-    this.dailyProfit = 0;
-    this.dailyTransactions = 0;
+    this.dailyProfit = {};
+    this.dailyTransactions = {};
 
     await this.telegramService.sendMessage("Статистика обнулена");
   }
 
   async clearStatisticsAll() {
     await this.sendStatistics();
-    stepPrices.forEach(stepPrice => {
-      const priceData = this.initialStats[`${stepPrice}`];
-      priceData.count = 0;
-      priceData.lastValue = 0;
-    });
+    Object.keys(stepPrices).forEach(currency => {
+      stepPrices[currency].forEach(stepPrice => {
+        const priceData = this.initialStats[currency][`${stepPrice}`];
+        priceData.count = 0;
+        priceData.lastValue = 0;
+      });
 
-    this.diffStats.forEach(diff => {
-      diff.count = 0;
-    });
+      this.diffStats[currency].forEach(diff => {
+        diff.count = 0;
+      });
+    })
 
-    this.dailyProfit = 0;
-    this.dailyTransactions = 0;
+    this.dailyProfit = {};
+    this.dailyTransactions = {};
 
     await this.telegramService.sendMessage("Статистика полностью обнулена");
   }
@@ -323,7 +460,7 @@ export class TradingService {
       try {
         for (const currency of currencies) {
           const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
-          this.statistics(currencyCurrentPrice);
+          currency?.sendStat && this.statistics(currencyCurrentPrice, currency.symbol);
           const difference = currencyCurrentPrice - currency.lastValue;
           const differenceAbs = Math.abs(+difference.toFixed(6));
 
@@ -339,7 +476,7 @@ export class TradingService {
               process.env.NODE_ENV === 'development' && console.log(3,difference, 'sell')
 
               const order = await this.orderService.getActiveOrderByPrice(currency.lastValue);
-              if (order && !this.isTraded) {
+              if (currency.canSell && order && !this.isTraded) {
                 try {
                   this.isTraded = true;
                   const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, newLastValue);
@@ -355,8 +492,8 @@ export class TradingService {
                       alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
                       const profit = (sellData?.price - order?.buyPrice) * sellData?.origQty;
                       alertMessage = `${alertMessage} \nДоход ${profit}$`;
-                      this.dailyProfit = this.dailyProfit + profit;
-                      this.dailyTransactions = this.dailyTransactions + 1;
+                      this.dailyProfit[currency.symbol] = this.dailyProfit[currency.symbol] + profit;
+                      this.dailyTransactions[currency.symbol] = this.dailyTransactions[currency.symbol] + 1;
                       process.env.NODE_ENV === 'development' && console.log(4, 'sell order', sellData)
                     }
                   }
@@ -372,7 +509,7 @@ export class TradingService {
               process.env.NODE_ENV === 'development' && console.log(3,difference, 'buy')
 
               const order = await this.orderService.getActiveOrderByPrice(newLastValue);
-              if (!order && !this.isTraded && currencyCurrentPrice < currency.maxTradePrice) {
+              if (currency.canBuy && !order && !this.isTraded && currencyCurrentPrice < currency.maxTradePrice && currencyCurrentPrice > currency.minTradePrice) {
                 try {
                   this.isTraded = true;
                   const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, newLastValue);
@@ -417,7 +554,12 @@ export class TradingService {
         step: 0.001,
         lastValue: 0.140,
         maxTradePrice: 0.160,
-        purchaseQuantity: 50
+        minTradePrice: 0,
+        purchaseQuantity: 50,
+        isActive: true,
+        canBuy: true,
+        canSell: true,
+        sendStat: false
       })
     }
   }
