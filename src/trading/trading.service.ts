@@ -18,8 +18,7 @@ setquantity - Set purchase quantity
 
 const initialDiffStats = {
   'KASUSDT': [],
-  'ETCUSDT': [],
-  'MXUSDT': [],
+  'MXUSDC': [],
 };
 for (let i = 0; i<20; i++) {
   const stat = {
@@ -32,26 +31,16 @@ for (let i = 0; i<20; i++) {
 
 for (let i = 0; i<20; i++) {
   const stat = {
-    price: (35 + (0.1 * i)).toFixed(4),
+    price: (10 + (0.001 * i)).toFixed(4),
     count: 0,
-    lastValue: (35 + (0.01 * i)).toFixed(4)
+    lastValue: (10 + (0.001 * i)).toFixed(4)
   }
-  initialDiffStats.ETCUSDT.push(stat);
-}
-
-for (let i = 0; i<20; i++) {
-  const stat = {
-    price: (10 + (0.1 * i)).toFixed(4),
-    count: 0,
-    lastValue: (10 + (0.01 * i)).toFixed(4)
-  }
-  initialDiffStats.MXUSDT.push(stat);
+  initialDiffStats.MXUSDC.push(stat);
 }
 
 const curSteps = {
   'KASUSDT': 0.002,
-  'ETCUSDT': 0.1,
-  'MXUSDT': 0.1,
+  'MXUSDC': 0.1,
 }
 
 const inStats = {
@@ -92,75 +81,38 @@ const inStats = {
       lastValue: 0
     },
   },
-  'ETCUSDT': {
-    '0.05': {
+  'MXUSDC': {
+    '0.005': {
       count: 0,
       coefficient: 1,
       lastValue: 0
     },
-    '0.1': {
+    '0.01': {
       count: 0,
       coefficient: 4,
       lastValue: 0
     },
-    '0.2': {
+    '0.02': {
       count: 0,
       coefficient: 16,
       lastValue: 0
     },
-    '0.3': {
+    '0.03': {
       count: 0,
       coefficient: 36,
       lastValue: 0
     },
-    '0.4': {
+    '0.04': {
       count: 0,
       coefficient: 64,
       lastValue: 0
     },
-    '0.5': {
-      count: 0,
-      coefficient: 100,
-      lastValue: 0
-    },
-    '1': {
-      count: 0,
-      coefficient: 400,
-      lastValue: 0
-    },
-  },
-  'MXUSDT': {
     '0.05': {
       count: 0,
-      coefficient: 1,
-      lastValue: 0
-    },
-    '0.1': {
-      count: 0,
-      coefficient: 4,
-      lastValue: 0
-    },
-    '0.2': {
-      count: 0,
-      coefficient: 16,
-      lastValue: 0
-    },
-    '0.3': {
-      count: 0,
-      coefficient: 36,
-      lastValue: 0
-    },
-    '0.4': {
-      count: 0,
-      coefficient: 64,
-      lastValue: 0
-    },
-    '0.5': {
-      count: 0,
       coefficient: 100,
       lastValue: 0
     },
-    '1': {
+    '0.1': {
       count: 0,
       coefficient: 400,
       lastValue: 0
@@ -176,8 +128,17 @@ type CurrencyStat = Record<string, {
 
 const stepPrices = {
   'KASUSDT': [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.01],
-  'ETCUSDT': [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 1],
-  'MXUSDT': [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 1],
+  'MXUSDC': [0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1],
+};
+
+const profit = {
+  'KASUSDT': 0,
+  'MXUSDC': 0,
+};
+
+const transactions = {
+  'KASUSDT': 0,
+  'MXUSDC': 0,
 };
 
 @Injectable()
@@ -194,8 +155,8 @@ export class TradingService {
 
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
-    this.dailyProfit = {};
-    this.dailyTransactions = {};
+    this.dailyProfit = {...profit};
+    this.dailyTransactions = {...transactions};
     this.initialStats = {...inStats};
     this.diffStats = {...initialDiffStats};
     this.inited();
@@ -428,8 +389,8 @@ export class TradingService {
       });
     })
 
-    this.dailyProfit = {};
-    this.dailyTransactions = {};
+    this.dailyProfit = {...profit};
+    this.dailyTransactions = {...transactions};
 
     await this.telegramService.sendMessage("Статистика обнулена");
   }
@@ -448,8 +409,8 @@ export class TradingService {
       });
     })
 
-    this.dailyProfit = {};
-    this.dailyTransactions = {};
+    this.dailyProfit = {...profit};
+    this.dailyTransactions = {...transactions};
 
     await this.telegramService.sendMessage("Статистика полностью обнулена");
   }
