@@ -354,11 +354,11 @@ export class TradingService {
   }
 
   async sendStatistics() {
-    const moneyMessage = this.moneyStat();
-    const diffMessage = this.diffStat();
+    // const moneyMessage = this.moneyStat();
+    // const diffMessage = this.diffStat();
     const transactionsMessage = this.transactionsStat();
     const profitMessage = this.profitStat();
-    await this.telegramService.sendMessage(moneyMessage + '\n \n' + diffMessage + '\n \n' + transactionsMessage + '\n \n' + profitMessage);
+    await this.telegramService.sendMessage(transactionsMessage + '\n \n' + profitMessage);
   }
 
   async sendMoneyStatistics() {
@@ -378,16 +378,16 @@ export class TradingService {
 
   async clearStatistics() {
     await this.sendStatistics();
-    Object.keys(stepPrices).forEach(currency => {
-      stepPrices[currency].forEach(stepPrice => {
-        const priceData = this.initialStats[currency][`${stepPrice}`];
-        priceData.count = 0;
-      });
-
-      this.diffStats[currency].forEach(diff => {
-        diff.count = 0;
-      });
-    })
+    // Object.keys(stepPrices).forEach(currency => {
+    //   stepPrices[currency].forEach(stepPrice => {
+    //     const priceData = this.initialStats[currency][`${stepPrice}`];
+    //     priceData.count = 0;
+    //   });
+    //
+    //   this.diffStats[currency].forEach(diff => {
+    //     diff.count = 0;
+    //   });
+    // })
 
     this.dailyProfit = {...profit};
     this.dailyTransactions = {...transactions};
@@ -421,7 +421,7 @@ export class TradingService {
       try {
         for (const currency of currencies) {
           const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
-          currency?.sendStat && this.statistics(currencyCurrentPrice, currency.symbol);
+          // currency?.sendStat && this.statistics(currencyCurrentPrice, currency.symbol);
           const difference = currencyCurrentPrice - currency.lastValue;
           const differenceAbs = Math.abs(+difference.toFixed(6));
 
