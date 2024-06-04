@@ -102,7 +102,7 @@ export class CronService {
     this.logger.info('ScanpricesCron was ended');
   }
 
-  @Cron('*/5 * * * * *')
+  @Cron('*/3 * * * * *')
   async tradingCronMonitoring() {
     try {
       await this.tradingService.monitoring();
@@ -121,9 +121,18 @@ export class CronService {
   }
 
   @Cron('*/2 * * * *')
-  async tradingCronCheckMissedOrders() {
+  async tradingCronCheckMissedSellOrders() {
     try {
-      await this.tradingService.checkMissedOrders();
+      await this.tradingService.checkMissedSellOrders();
+    } catch (e) {
+      this.logger.error('TradingCron error', e.message);
+    }
+  }
+
+  @Cron('*/1 * * * *')
+  async tradingCronCheckMissedBuyOrders() {
+    try {
+      await this.tradingService.checkMissedBuyOrders();
     } catch (e) {
       this.logger.error('TradingCron error', e.message);
     }

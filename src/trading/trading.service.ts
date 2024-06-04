@@ -133,12 +133,10 @@ const stepPrices = {
 
 const profit = {
   'KASUSDT': 0,
-  'MXUSDC': 0,
 };
 
 const transactions = {
   'KASUSDT': 0,
-  'MXUSDC': 0,
 };
 
 @Injectable()
@@ -163,10 +161,43 @@ export class TradingService {
     this.listenTg();
   }
 
-  async checkMissedOrders() {
+  async checkMissedBuyOrders() {
     const currencies = await this.currencyService.getAll();
 
-    if (currencies?.length > 0) {
+    if (currencies?.length > 0 && !this.isTraded) {
+      try {
+        for (const currency of currencies) {
+          const order = await this.orderService.getMissedBuyOrderByPrice(currency.lastValue, currency._id);
+
+          if (currency.canBuy && !order && !this.isTraded) {
+            const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
+            if (currencyCurrentPrice < currency.maxTradePrice) {
+              let alertMessage = `❔ ${currency.lastValue} - Цена ${currency.name}`;
+
+              alertMessage = `${alertMessage} \n Найден не купленный ордер`;
+              try {
+                this.isTraded = true;
+                alertMessage = `${alertMessage} \n Тут должна быть покупка ${currency.purchaseQuantity} монет по цене ${currencyCurrentPrice}$ или ${currency.lastValue}$`;
+              } catch (e) {
+                alertMessage = `${alertMessage} \nПокупка не получилась по причине: ${e.message}`;
+              } finally {
+                this.isTraded = false;
+              }
+              await this.telegramService.sendMessage(alertMessage);
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err?.message);
+        await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+      }
+    }
+  }
+
+  async checkMissedSellOrders() {
+    const currencies = await this.currencyService.getAll();
+
+    if (currencies?.length > 0 && !this.isTraded) {
       try {
         for (const currency of currencies) {
           const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
@@ -417,7 +448,7 @@ export class TradingService {
 
   async monitoring() {
     const currencies = await this.currencyService.getAll();
-    if (currencies?.length > 0) {
+    if (currencies?.length > 0 && !this.isTraded) {
       try {
         for (const currency of currencies) {
           const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
@@ -473,7 +504,8 @@ export class TradingService {
               if (currency.canBuy && !order && !this.isTraded && currencyCurrentPrice < currency.maxTradePrice && currencyCurrentPrice > currency.minTradePrice) {
                 try {
                   this.isTraded = true;
-                  const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, newLastValue);
+                  const buyPrice = newLastValue - currencyCurrentPrice > currency.step  ? currencyCurrentPrice : newLastValue;
+                  const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice);
 
                   if (buyData) {
                     const newOrder: CreateOrderDto = {
@@ -502,26 +534,13 @@ export class TradingService {
             currency.lastValue = newLastValue;
             await this.currencyService.update(currency._id, currency);
             await this.telegramService.sendMessage(alertMessage);
+            break;
           }
         }
       } catch (err) {
         console.error(err?.message);
         await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
       }
-    } else {
-      await this.currencyService.create({
-        name: 'KAS-USDT',
-        symbol: 'KASUSDT',
-        step: 0.001,
-        lastValue: 0.140,
-        maxTradePrice: 0.160,
-        minTradePrice: 0,
-        purchaseQuantity: 50,
-        isActive: true,
-        canBuy: true,
-        canSell: true,
-        sendStat: false
-      })
     }
   }
 }

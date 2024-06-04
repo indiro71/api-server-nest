@@ -25,6 +25,11 @@ export class OrderService {
     return order;
   }
 
+  async getMissedBuyOrderByPrice(buyPrice: number, id: any): Promise<Order> {
+    const order = await this.orderModel.findOne().where('currency').equals(id).where({ buyPrice, sold: false });
+    return order;
+  }
+
   async update(id: ObjectId, dto: CreateOrderDto): Promise<Order> {
     const order = await this.orderModel.findByIdAndUpdate(id, dto);
     return order;
