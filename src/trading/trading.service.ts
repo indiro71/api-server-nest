@@ -171,7 +171,7 @@ export class TradingService {
 
           if (currency.canBuy && !order && !this.isTraded) {
             const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
-            if (currencyCurrentPrice < currency.maxTradePrice && currencyCurrentPrice < currency.lastValue) {
+            if (currencyCurrentPrice < currency.maxTradePrice && currency.lastValue < currency.maxTradePrice) {
               let alertMessage = `❔ ${currency.lastValue} - Цена ${currency.name}`;
 
               alertMessage = `${alertMessage} \n Найден не купленный ордер`;
