@@ -129,7 +129,7 @@ export class CronService {
     }
   }
 
-  @Cron('*/1 * * * *')
+  // @Cron('*/1 * * * *')
   async tradingCronCheckMissedBuyOrders() {
     try {
       await this.tradingService.checkMissedBuyOrders();
