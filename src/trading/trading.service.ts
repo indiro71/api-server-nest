@@ -142,6 +142,7 @@ const transactions = {
 @Injectable()
 export class TradingService {
   private isTraded: boolean;
+  private isMonitoring: boolean;
   private dailyProfit: Record<string, number>;
   private dailyTransactions: Record<string, number>;
   private initialStats: Record<string, CurrencyStat>;
@@ -153,6 +154,7 @@ export class TradingService {
 
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
+    this.isMonitoring = false;
     this.dailyProfit = {...profit};
     this.dailyTransactions = {...transactions};
     this.initialStats = {...inStats};
@@ -327,14 +329,15 @@ export class TradingService {
 
   async setQuantity(newValue: string) {
     const currencies = await this.currencyService.getAll();
-    const currency = currencies[0];
     const numberNewValue = +newValue;
     if (!newValue) {
       await this.telegramService.sendMessage(`Изменение на ${numberNewValue} невозможно.`);
     } else {
       try {
-        currency.purchaseQuantity = numberNewValue;
-        await this.currencyService.update(currency._id, currency);
+        for (const currency of currencies) {
+          currency.purchaseQuantity = numberNewValue;
+          await this.currencyService.update(currency._id, currency);
+        }
         await this.telegramService.sendMessage(`Значение purchaseQuantity успешно изменено на ${numberNewValue}`);
       } catch (e) {
         await this.telegramService.sendMessage(`Ошибка изменения purchaseQuantity`);
@@ -448,8 +451,9 @@ export class TradingService {
 
   async monitoring() {
     const currencies = await this.currencyService.getAll();
-    if (currencies?.length > 0 && !this.isTraded) {
+    if (currencies?.length > 0 && !this.isTraded && !this.isMonitoring) {
       try {
+        this.isMonitoring = true;
         for (const currency of currencies) {
           const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
           // currency?.sendStat && this.statistics(currencyCurrentPrice, currency.symbol);
@@ -460,7 +464,7 @@ export class TradingService {
 
           if (Math.abs(difference) >= currency.step) {
             let newLastValue = currency.lastValue;
-            let alertMessage = `${currencyCurrentPrice} \nЦена ${currency.name}`;
+            let alertMessage = `${currencyCurrentPrice} | ${currency.lastValue} \nЦена ${currency.name}`;
 
             if (difference>0) {
               newLastValue = +(currency.lastValue + currency.step).toFixed(6);
@@ -534,12 +538,13 @@ export class TradingService {
             currency.lastValue = newLastValue;
             await this.currencyService.update(currency._id, currency);
             await this.telegramService.sendMessage(alertMessage);
-            break;
           }
         }
       } catch (err) {
         console.error(err?.message);
         await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+      } finally {
+        this.isMonitoring = false;
       }
     }
   }
