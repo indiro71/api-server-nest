@@ -454,8 +454,16 @@ export class TradingService {
     if (currencies?.length > 0 && !this.isTraded && !this.isMonitoring) {
       try {
         this.isMonitoring = true;
+        const prices = {};
+
         for (const currency of currencies) {
-          const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
+          let currencyCurrentPrice;
+          if (currency.symbol in prices) {
+            currencyCurrentPrice = prices[currency.symbol];
+          } else {
+            currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
+            prices[currency.symbol] = currencyCurrentPrice;
+          }
           // currency?.sendStat && this.statistics(currencyCurrentPrice, currency.symbol);
           const difference = currencyCurrentPrice - currency.lastValue;
           const differenceAbs = Math.abs(+difference.toFixed(6));
@@ -538,6 +546,7 @@ export class TradingService {
             currency.lastValue = newLastValue;
             await this.currencyService.update(currency._id, currency);
             await this.telegramService.sendMessage(alertMessage);
+            break;
           }
         }
       } catch (err) {
