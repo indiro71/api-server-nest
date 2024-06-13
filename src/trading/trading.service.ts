@@ -143,6 +143,7 @@ const transactions = {
 export class TradingService {
   private isTraded: boolean;
   private isMonitoring: boolean;
+  private checkCount: number;
   private dailyProfit: Record<string, number>;
   private dailyTransactions: Record<string, number>;
   private initialStats: Record<string, CurrencyStat>;
@@ -155,6 +156,7 @@ export class TradingService {
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
     this.isMonitoring = false;
+    this.checkCount = 0;
     this.dailyProfit = {...profit};
     this.dailyTransactions = {...transactions};
     this.initialStats = {...inStats};
@@ -196,13 +198,19 @@ export class TradingService {
     }
   }
 
-  async checkMissedSellOrders() {
+  async checkMissedSellOrders(prices) {
     const currencies = await this.currencyService.getAll();
 
     if (currencies?.length > 0 && !this.isTraded) {
       try {
         for (const currency of currencies) {
-          const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
+          let currencyCurrentPrice;
+          if (currency.symbol in prices) {
+            currencyCurrentPrice = prices[currency.symbol];
+          } else {
+            currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
+            prices[currency.symbol] = currencyCurrentPrice;
+          }
           const minimumFindPrice = currencyCurrentPrice - currency.step; //  * 2
 
           const order = await this.orderService.getMissedOrderByPrice(minimumFindPrice, currency._id);
@@ -548,6 +556,13 @@ export class TradingService {
             await this.telegramService.sendMessage(alertMessage);
             break;
           }
+        }
+
+        if (this.checkCount === 50) {
+          await this.checkMissedSellOrders(prices);
+          this.checkCount = 0;
+        } else {
+          this.checkCount++;
         }
       } catch (err) {
         console.error(err?.message);
