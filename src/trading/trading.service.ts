@@ -465,6 +465,7 @@ export class TradingService {
         const prices = {};
 
         for (const currency of currencies) {
+          const deviation = 0.00001;
           let currencyCurrentPrice;
           if (currency.symbol in prices) {
             currencyCurrentPrice = prices[currency.symbol];
@@ -478,7 +479,7 @@ export class TradingService {
 
           process.env.NODE_ENV === 'development' && console.log(1, currencyCurrentPrice, currency.lastValue, +difference.toFixed(6))
 
-          if (Math.abs(difference) >= currency.step) {
+          if (Math.abs(difference) >= currency.step - deviation) {
             let newLastValue = currency.lastValue;
             let alertMessage = `${currencyCurrentPrice} | ${currency.lastValue} \nЦена ${currency.name}`;
 
@@ -491,7 +492,8 @@ export class TradingService {
               if (currency.canSell && order && !this.isTraded) {
                 try {
                   this.isTraded = true;
-                  const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, newLastValue);
+                  const sellPrice = currencyCurrentPrice - newLastValue > currency.step  ? currencyCurrentPrice : newLastValue;
+                  const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, sellPrice - deviation);
                   if (sellData) {
                     order.sold = true;
                     order.sellPrice = sellData?.price || newLastValue;
@@ -525,7 +527,7 @@ export class TradingService {
                 try {
                   this.isTraded = true;
                   const buyPrice = newLastValue - currencyCurrentPrice > currency.step  ? currencyCurrentPrice : newLastValue;
-                  const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice);
+                  const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice + deviation);
 
                   if (buyData) {
                     const newOrder: CreateOrderDto = {
@@ -558,7 +560,7 @@ export class TradingService {
           }
         }
 
-        if (this.checkCount === 50) {
+        if (this.checkCount === 100) {
           await this.checkMissedSellOrders(prices);
           this.checkCount = 0;
         } else {
