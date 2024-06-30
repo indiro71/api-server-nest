@@ -40,6 +40,30 @@ export class MxcService {
     return data;
   }
 
+  async getOpenOrders(symbol: string) {
+    const apiUrl = 'https://api.mexc.com/api/v3/openOrders';
+    const timestamp = Date.now().toString();
+
+    const data = {
+      symbol,
+      timestamp: timestamp
+    };
+
+    const dataString = Object.keys(data)
+        .map(key => `${key}=${encodeURIComponent(data[key])}`)
+        .join('&');
+
+    const signature = this.generateSignature(dataString);
+    const url = `${apiUrl}?${dataString}&signature=${signature}`;
+
+    try {
+      const response = await this.httpService.get(url, {headers: this.headers}).toPromise();
+      return response.data;
+    } catch (e) {
+      console.error(e.response)
+    }
+  }
+
   async testBuyOrder(symbol: string, quantity: number, price: number) {
     const data = await this.newOrder(symbol, quantity, price, 'BUY', true)
     return data;

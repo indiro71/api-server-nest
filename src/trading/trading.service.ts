@@ -133,10 +133,13 @@ const stepPrices = {
 
 const profit = {
   'KASUSDT': 0,
+  'KASUSDT2': 0
 };
 
 const transactions = {
   'KASUSDT': 0,
+  'KASUSDT2': 0,
+  'KASUSDT3': 0,
 };
 
 @Injectable()
@@ -195,6 +198,33 @@ export class TradingService {
         console.error(err?.message);
         await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
       }
+    }
+  }
+
+  async checkSellingOrders(currency) {
+    try {
+      const orders = await this.orderService.getExhibitedOrders(currency._id);
+      const mexOrders = await this.mxcService.getOpenOrders(currency.symbol);
+      const openedMexOrdersIds = mexOrders?.filter(order => order.side === 'SELL')?.map(order => order.orderId);
+
+      for (const order of orders) {
+        if (!openedMexOrdersIds.includes(order.orderId)) {
+          order.sold = true;
+          await this.orderService.update(order._id, order);
+
+          let alertMessage = `Продано ${order?.quantity} монет по цене ${order?.sellPrice}$ за ${order?.quantity * order?.sellPrice}$`;
+          const profit = (order?.sellPrice - order?.buyPrice) * order?.quantity;
+          alertMessage = `${alertMessage} \nДоход ${profit}$`;
+
+          this.dailyProfit[`${currency.symbol}2`] = this.dailyProfit[`${currency.symbol}2`] + profit;
+          this.dailyTransactions[`${currency.symbol}2`] = this.dailyTransactions[`${currency.symbol}2`] + 1;
+
+          await this.telegramService.sendMessage(alertMessage);
+        }
+      }
+    } catch (err) {
+      console.error(err?.message);
+      await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
     }
   }
 
@@ -479,88 +509,155 @@ export class TradingService {
 
           process.env.NODE_ENV === 'development' && console.log(1, currencyCurrentPrice, currency.lastValue, +difference.toFixed(6))
 
-          if (Math.abs(difference) >= currency.step - deviation) {
-            let newLastValue = currency.lastValue;
-            let alertMessage = `${currencyCurrentPrice} | ${currency.lastValue} \nЦена ${currency.name}`;
-
-            if (difference>0) {
-              newLastValue = +(currency.lastValue + currency.step).toFixed(6);
-              alertMessage = `⬆️ ${alertMessage} увеличилась на ${differenceAbs}.`
-              process.env.NODE_ENV === 'development' && console.log(3,difference, 'sell')
-
-              const order = await this.orderService.getActiveOrderByPrice(currency.lastValue);
-              if (currency.canSell && order && !this.isTraded) {
-                try {
-                  this.isTraded = true;
-                  const sellPrice = currencyCurrentPrice - newLastValue > currency.step  ? currencyCurrentPrice : newLastValue;
-                  const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, sellPrice - deviation);
-                  if (sellData) {
-                    order.sold = true;
-                    order.sellPrice = sellData?.price || newLastValue;
-                    order.dateSell = new Date();
-                    order.sellResult = JSON.stringify(sellData)
-
-                    const updateOrderData = await this.orderService.update(order._id, order);
-
-                    if (updateOrderData) {
-                      alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
-                      const profit = (sellData?.price - order?.buyPrice) * sellData?.origQty;
-                      alertMessage = `${alertMessage} \nДоход ${profit}$`;
-                      this.dailyProfit[currency.symbol] = this.dailyProfit[currency.symbol] + profit;
-                      this.dailyTransactions[currency.symbol] = this.dailyTransactions[currency.symbol] + 1;
-                      process.env.NODE_ENV === 'development' && console.log(4, 'sell order', sellData)
-                    }
-                  }
-                } catch (e) {
-                  alertMessage = `${alertMessage} \nПродажа не получилась по причине: ${e.message}`;
-                } finally {
-                  this.isTraded = false;
-                }
-              }
+          if (currency.isNewStrategy) {
+            if (currencyCurrentPrice > currency.lastValue) {
+              currency.lastValue = currencyCurrentPrice;
+              await this.currencyService.update(currency._id, currency);
             } else {
-              newLastValue = +(currency.lastValue - currency.step).toFixed(6);
-              alertMessage = `⬇️ ${alertMessage} уменьшилась на ${differenceAbs}.`
-              process.env.NODE_ENV === 'development' && console.log(3,difference, 'buy')
+              if (100 - (currencyCurrentPrice / currency.lastValue * 100) >= currency.step) {
+                let alertMessage = `${currencyCurrentPrice} | ${currency.lastValue} \nЦена ${currency.name}`;
+                currency.lastValue = currencyCurrentPrice;
+                await this.currencyService.update(currency._id, currency);
 
-              const order = await this.orderService.getActiveOrderByPrice(newLastValue);
-              if (currency.canBuy && !order && !this.isTraded && currencyCurrentPrice < currency.maxTradePrice && currencyCurrentPrice > currency.minTradePrice) {
-                try {
-                  this.isTraded = true;
-                  const buyPrice = newLastValue - currencyCurrentPrice > currency.step  ? currencyCurrentPrice : newLastValue;
-                  const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice + deviation);
+                if (!this.isTraded && currency.isActive) {
+                  try {
+                    this.isTraded = true;
+                    const buyPrice = currencyCurrentPrice;
+                    const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice);
 
-                  if (buyData) {
-                    const newOrder: CreateOrderDto = {
-                      currency: currency._id,
-                      quantity: currency.purchaseQuantity,
-                      buyPrice: newLastValue,
-                      currencyPrice: buyData?.price || newLastValue,
-                      buyResult: JSON.stringify(buyData)
+                    if (buyData) {
+                      const newOrder: CreateOrderDto = {
+                        currency: currency._id,
+                        quantity: currency.purchaseQuantity,
+                        buyPrice: currencyCurrentPrice,
+                        currencyPrice: buyPrice,
+                        buyResult: JSON.stringify(buyData)
+                      }
+
+                      const newOrderData = await this.orderService.create(newOrder);
+                      if (newOrderData) {
+                        alertMessage = `${alertMessage} \nКуплено ${buyData?.origQty} монет по цене ${buyData?.price}$ за ${buyData?.origQty * buyData?.price}$`;
+                      }
+
+                      try {
+                        const sellPrice = parseFloat((+currencyCurrentPrice + (+currencyCurrentPrice / 100 * 0.3)).toFixed(6));
+                        const sellData = await this.mxcService.sellOrder(currency.symbol, newOrder.quantity, sellPrice);
+                        if (sellData) {
+                          newOrderData.sold = false;
+                          newOrderData.exhibited = true;
+                          newOrderData.sellPrice = sellPrice;
+                          newOrderData.orderId = sellData?.orderId;
+                          newOrderData.dateSell = new Date();
+                          newOrderData.sellResult = JSON.stringify(sellData)
+
+                          const updateOrderData = await this.orderService.update(newOrderData._id, newOrderData);
+
+                          if (updateOrderData) {
+                            alertMessage = `${alertMessage} \nВыставлено ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
+                          }
+                          this.dailyTransactions[`${currency.symbol}3`] = this.dailyTransactions[`${currency.symbol}3`] + 1;
+                        }
+                      } catch (e) {
+                        alertMessage = `${alertMessage} \nПродажа не получилась по причине: ${e.message}`;
+                        throw e;
+                      }
                     }
-
-                    const newOrderData = await this.orderService.create(newOrder);
-                    if (newOrderData) {
-                      alertMessage = `${alertMessage} \nКуплено ${buyData?.origQty} монет по цене ${buyData?.price}$ за ${buyData?.origQty * buyData?.price}$`;
-                      process.env.NODE_ENV === 'development' && console.log(4, 'buy order', buyData);
-                    }
+                  } catch (e) {
+                    alertMessage = `${alertMessage} \nПокупка не получилась по причине: ${e.message}`;
+                    process.env.NODE_ENV === 'development' && console.log(5, 'buy error', e)
+                  } finally {
+                    this.isTraded = false;
                   }
-                } catch (e) {
-                  alertMessage = `${alertMessage} \nПокупка не получилась по причине: ${e.message}`;
-                  process.env.NODE_ENV === 'development' && console.log(5, 'buy error', e)
-                } finally {
-                  this.isTraded = false;
                 }
+                await this.telegramService.sendMessage(alertMessage);
               }
             }
+            if (this.checkCount === 10) {
+              await this.checkSellingOrders(currency);
+            }
+          } else {
+            if (Math.abs(difference) >= currency.step - deviation) {
+              let newLastValue = currency.lastValue;
+              let alertMessage = `${currencyCurrentPrice} | ${currency.lastValue} \nЦена ${currency.name}`;
 
-            currency.lastValue = newLastValue;
-            await this.currencyService.update(currency._id, currency);
-            await this.telegramService.sendMessage(alertMessage);
-            break;
+              if (difference>0) {
+                newLastValue = +(currency.lastValue + currency.step).toFixed(6);
+                alertMessage = `⬆️ ${alertMessage} увеличилась на ${differenceAbs}.`
+                process.env.NODE_ENV === 'development' && console.log(3,difference, 'sell')
+
+                const order = await this.orderService.getActiveOrderByPrice(currency.lastValue);
+                if (currency.canSell && order && !this.isTraded) {
+                  try {
+                    this.isTraded = true;
+                    const sellPrice = currencyCurrentPrice - newLastValue > currency.step  ? currencyCurrentPrice : newLastValue;
+                    const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, sellPrice - deviation);
+                    if (sellData) {
+                      order.sold = true;
+                      order.sellPrice = sellData?.price || newLastValue;
+                      order.dateSell = new Date();
+                      order.sellResult = JSON.stringify(sellData)
+
+                      const updateOrderData = await this.orderService.update(order._id, order);
+
+                      if (updateOrderData) {
+                        alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
+                        const profit = (sellData?.price - order?.buyPrice) * sellData?.origQty;
+                        alertMessage = `${alertMessage} \nДоход ${profit}$`;
+                        this.dailyProfit[currency.symbol] = this.dailyProfit[currency.symbol] + profit;
+                        this.dailyTransactions[currency.symbol] = this.dailyTransactions[currency.symbol] + 1;
+                        process.env.NODE_ENV === 'development' && console.log(4, 'sell order', sellData)
+                      }
+                    }
+                  } catch (e) {
+                    alertMessage = `${alertMessage} \nПродажа не получилась по причине: ${e.message}`;
+                  } finally {
+                    this.isTraded = false;
+                  }
+                }
+              } else {
+                newLastValue = +(currency.lastValue - currency.step).toFixed(6);
+                alertMessage = `⬇️ ${alertMessage} уменьшилась на ${differenceAbs}.`
+                process.env.NODE_ENV === 'development' && console.log(3,difference, 'buy')
+
+                const order = await this.orderService.getActiveOrderByPrice(newLastValue);
+                if (currency.canBuy && !order && !this.isTraded && currencyCurrentPrice < currency.maxTradePrice && currencyCurrentPrice > currency.minTradePrice) {
+                  try {
+                    this.isTraded = true;
+                    const buyPrice = newLastValue - currencyCurrentPrice > currency.step  ? currencyCurrentPrice : newLastValue;
+                    const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice + deviation);
+
+                    if (buyData) {
+                      const newOrder: CreateOrderDto = {
+                        currency: currency._id,
+                        quantity: currency.purchaseQuantity,
+                        buyPrice: newLastValue,
+                        currencyPrice: buyData?.price || newLastValue,
+                        buyResult: JSON.stringify(buyData)
+                      }
+
+                      const newOrderData = await this.orderService.create(newOrder);
+                      if (newOrderData) {
+                        alertMessage = `${alertMessage} \nКуплено ${buyData?.origQty} монет по цене ${buyData?.price}$ за ${buyData?.origQty * buyData?.price}$`;
+                        process.env.NODE_ENV === 'development' && console.log(4, 'buy order', buyData);
+                      }
+                    }
+                  } catch (e) {
+                    alertMessage = `${alertMessage} \nПокупка не получилась по причине: ${e.message}`;
+                    process.env.NODE_ENV === 'development' && console.log(5, 'buy error', e)
+                  } finally {
+                    this.isTraded = false;
+                  }
+                }
+              }
+
+              currency.lastValue = newLastValue;
+              await this.currencyService.update(currency._id, currency);
+              await this.telegramService.sendMessage(alertMessage);
+            }
           }
         }
 
-        if (this.checkCount === 100) {
+        if (this.checkCount === 50) {
           await this.checkMissedSellOrders(prices);
           this.checkCount = 0;
         } else {

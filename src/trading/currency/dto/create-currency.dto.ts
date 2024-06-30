@@ -35,4 +35,7 @@ export class CreateCurrencyDto {
 
   @ApiProperty({ example: 50, description: 'Purchase quantity' })
   readonly purchaseQuantity: number;
+
+  @ApiProperty({ example: false, description: 'Is new strategy' })
+  readonly isNewStrategy: boolean;
 }
