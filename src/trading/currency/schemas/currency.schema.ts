@@ -95,6 +95,12 @@ export class Currency {
     default: Date.now,
   })
   dateUpdate: Date;
+
+  @ApiProperty({ example: false, description: 'Is new strategy' })
+  @Prop({
+    default: false,
+  })
+  isNewStrategy: boolean;
 }
 
 export const CurrencySchema = SchemaFactory.createForClass(Currency);

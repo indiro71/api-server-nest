@@ -25,6 +25,11 @@ export class OrderService {
     return order;
   }
 
+  async getExhibitedOrders(id: any): Promise<Order[]> {
+    const orders = await this.orderModel.find().where('currency').equals(id).where({ sold: false, exhibited: true });
+    return orders;
+  }
+
   async getMissedBuyOrderByPrice(buyPrice: number, id: any): Promise<Order> {
     const order = await this.orderModel.findOne().where('currency').equals(id).where({ buyPrice, sold: false });
     return order;
