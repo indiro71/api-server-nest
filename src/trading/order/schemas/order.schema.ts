@@ -77,6 +77,22 @@ export class Order {
     default: false,
   })
   sold: boolean;
+
+  @ApiProperty({
+    example: false,
+    description: 'Order is exhibited',
+    required: false,
+  })
+  @Prop({
+    default: false,
+  })
+  exhibited: boolean;
+
+  @ApiProperty({ example: "Order id", description: '12345' })
+  @Prop({
+    required: false,
+  })
+  orderId: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
