@@ -101,6 +101,12 @@ export class Currency {
     default: false,
   })
   isNewStrategy: boolean;
+
+  @ApiProperty({ example: false, description: 'Send notification' })
+  @Prop({
+    default: false,
+  })
+  sendNotification: boolean;
 }
 
 export const CurrencySchema = SchemaFactory.createForClass(Currency);

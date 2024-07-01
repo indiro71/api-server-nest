@@ -523,15 +523,15 @@ export class TradingService {
                 if (!this.isTraded && currency.isActive) {
                   try {
                     this.isTraded = true;
-                    const buyPrice = currencyCurrentPrice;
+                    const buyPrice = +(+currencyCurrentPrice + deviation).toFixed(6);
                     const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice);
 
                     if (buyData) {
                       const newOrder: CreateOrderDto = {
                         currency: currency._id,
                         quantity: currency.purchaseQuantity,
-                        buyPrice: currencyCurrentPrice,
-                        currencyPrice: buyPrice,
+                        buyPrice: buyPrice,
+                        currencyPrice: currencyCurrentPrice,
                         buyResult: JSON.stringify(buyData)
                       }
 
@@ -559,8 +559,8 @@ export class TradingService {
                           this.dailyTransactions[`${currency.symbol}3`] = this.dailyTransactions[`${currency.symbol}3`] + 1;
                         }
                       } catch (e) {
-                        alertMessage = `${alertMessage} \nПродажа не получилась по причине: ${e.message}`;
-                        throw e;
+                        alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e.message}`;
+                        await this.telegramService.sendMessage(alertMessage);
                       }
                     }
                   } catch (e) {
@@ -570,7 +570,9 @@ export class TradingService {
                     this.isTraded = false;
                   }
                 }
-                await this.telegramService.sendMessage(alertMessage);
+                if (currency?.sendNotification) {
+                  await this.telegramService.sendMessage(alertMessage);
+                }
               }
             }
             if (this.checkCount === 10) {
@@ -654,7 +656,9 @@ export class TradingService {
 
               currency.lastValue = newLastValue;
               await this.currencyService.update(currency._id, currency);
-              await this.telegramService.sendMessage(alertMessage);
+              if (currency?.sendNotification) {
+                await this.telegramService.sendMessage(alertMessage);
+              }
             }
           }
         }
