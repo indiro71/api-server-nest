@@ -213,7 +213,7 @@ export class TradingService {
           order.sold = true;
           await this.orderService.update(order._id, order);
 
-          let alertMessage = `Продано ${order?.quantity} монет по цене ${order?.sellPrice}$ за ${order?.quantity * order?.sellPrice}$`;
+          let alertMessage = `💰 Продано ${order?.quantity} монет по цене ${order?.sellPrice}$ за ${order?.quantity * order?.sellPrice}$`;
           const profit = (order?.sellPrice - order?.buyPrice) * order?.quantity;
           alertMessage = `${alertMessage} \nДоход ${profit}$`;
 
@@ -516,7 +516,7 @@ export class TradingService {
               await this.currencyService.update(currency._id, currency);
             } else {
               if (100 - (currencyCurrentPrice / currency.lastValue * 100) >= currency.step) {
-                let alertMessage = `${currencyCurrentPrice} | ${currency.lastValue} \nЦена ${currency.name}`;
+                let alertMessage = `⬇️ ${currency.name} - ${currencyCurrentPrice}$`;
                 currency.lastValue = currencyCurrentPrice;
                 await this.currencyService.update(currency._id, currency);
 
