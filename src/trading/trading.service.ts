@@ -140,6 +140,7 @@ const transactions = {
   'KASUSDT': 0,
   'KASUSDT2': 0,
   'KASUSDT3': 0,
+  'KASUSDT4': 0,
 };
 
 @Injectable()
@@ -208,7 +209,7 @@ export class TradingService {
       const openedMexOrdersIds = mexOrders?.filter(order => order.side === 'SELL')?.map(order => order.orderId);
 
       for (const order of orders) {
-        if (!openedMexOrdersIds.includes(order.orderId)) {
+        if (openedMexOrdersIds && !openedMexOrdersIds?.includes(order.orderId)) {
           order.sold = true;
           await this.orderService.update(order._id, order);
 
@@ -583,6 +584,7 @@ export class TradingService {
               if (difference>0) {
                 newLastValue = +(currency.lastValue + currency.step).toFixed(6);
                 alertMessage = `⬆️ ${alertMessage} увеличилась на ${differenceAbs}.`
+                this.dailyTransactions[`${currency.symbol}4`] = this.dailyTransactions[`${currency.symbol}4`] + 1;
                 process.env.NODE_ENV === 'development' && console.log(3,difference, 'sell')
 
                 const order = await this.orderService.getActiveOrderByPrice(currency.lastValue);
