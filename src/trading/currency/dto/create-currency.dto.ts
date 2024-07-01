@@ -38,4 +38,7 @@ export class CreateCurrencyDto {
 
   @ApiProperty({ example: false, description: 'Is new strategy' })
   readonly isNewStrategy: boolean;
+
+  @ApiProperty({ example: false, description: 'Send notification' })
+  readonly sendNotification: boolean;
 }
