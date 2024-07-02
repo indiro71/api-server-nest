@@ -333,6 +333,9 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/diffstat/, async () => {
       await this.sendDiffStatistics();
     });
+    await this.telegramService.bot.onText(/\/istraded/, async () => {
+      await this.sendIsTraded();
+    });
     await this.telegramService.bot.onText(/\/dailyprofit/, async () => {
       await this.sendDailyProfit();
     });
@@ -445,6 +448,10 @@ export class TradingService {
   async sendDiffStatistics() {
     const diffMessage = this.diffStat();
     await this.telegramService.sendMessage(diffMessage);
+  }
+
+  async sendIsTraded() {
+    await this.telegramService.sendMessage(this.isTraded ? 'Yes' : 'No');
   }
 
   async sendDailyProfit() {
