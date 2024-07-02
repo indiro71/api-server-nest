@@ -138,9 +138,10 @@ const profit = {
 
 const transactions = {
   'KASUSDT': 0,
-  'KASUSDT2': 0,
-  'KASUSDT3': 0,
-  'KASUSDT4': 0,
+  'KASUSDT-sold': 0,
+  'KASUSDT-exhibited': 0,
+  'KASUSDT-up': 0,
+  'KASUSDT-down': 0,
 };
 
 @Injectable()
@@ -217,8 +218,8 @@ export class TradingService {
           const profit = (order?.sellPrice - order?.buyPrice) * order?.quantity;
           alertMessage = `${alertMessage} \nДоход ${profit}$`;
 
-          this.dailyProfit[`${currency.symbol}2`] = this.dailyProfit[`${currency.symbol}2`] + profit;
-          this.dailyTransactions[`${currency.symbol}2`] = this.dailyTransactions[`${currency.symbol}2`] + 1;
+          this.dailyProfit[`${currency.symbol}-sold`] = this.dailyProfit[`${currency.symbol}-sold`] + profit;
+          this.dailyTransactions[`${currency.symbol}-sold`] = this.dailyTransactions[`${currency.symbol}-sold`] + 1;
 
           await this.telegramService.sendMessage(alertMessage);
         }
@@ -374,8 +375,10 @@ export class TradingService {
     } else {
       try {
         for (const currency of currencies) {
-          currency.purchaseQuantity = numberNewValue;
-          await this.currencyService.update(currency._id, currency);
+          if (!currency?.isNewStrategy) {
+            currency.purchaseQuantity = numberNewValue;
+            await this.currencyService.update(currency._id, currency);
+          }
         }
         await this.telegramService.sendMessage(`Значение purchaseQuantity успешно изменено на ${numberNewValue}`);
       } catch (e) {
@@ -523,13 +526,14 @@ export class TradingService {
                 if (!this.isTraded && currency.isActive) {
                   try {
                     this.isTraded = true;
+                    const quantity = currencyCurrentPrice < currency.maxTradePrice && currencyCurrentPrice > currency.minTradePrice ? currency.purchaseQuantity : 50;
                     const buyPrice = +(+currencyCurrentPrice + deviation).toFixed(6);
-                    const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice);
+                    const buyData = await this.mxcService.buyOrder(currency.symbol, quantity, buyPrice);
 
                     if (buyData) {
                       const newOrder: CreateOrderDto = {
                         currency: currency._id,
-                        quantity: currency.purchaseQuantity,
+                        quantity: quantity,
                         buyPrice: buyPrice,
                         currencyPrice: currencyCurrentPrice,
                         buyResult: JSON.stringify(buyData)
@@ -556,7 +560,7 @@ export class TradingService {
                           if (updateOrderData) {
                             alertMessage = `${alertMessage} \nВыставлено ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
                           }
-                          this.dailyTransactions[`${currency.symbol}3`] = this.dailyTransactions[`${currency.symbol}3`] + 1;
+                          this.dailyTransactions[`${currency.symbol}-exhibited`] = this.dailyTransactions[`${currency.symbol}-exhibited`] + 1;
                         }
                       } catch (e) {
                         alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e.message}`;
@@ -586,7 +590,7 @@ export class TradingService {
               if (difference>0) {
                 newLastValue = +(currency.lastValue + currency.step).toFixed(6);
                 alertMessage = `⬆️ ${alertMessage} увеличилась на ${differenceAbs}.`
-                this.dailyTransactions[`${currency.symbol}4`] = this.dailyTransactions[`${currency.symbol}4`] + 1;
+                this.dailyTransactions[`${currency.symbol}-up`] = this.dailyTransactions[`${currency.symbol}-up`] + 1;
                 process.env.NODE_ENV === 'development' && console.log(3,difference, 'sell')
 
                 const order = await this.orderService.getActiveOrderByPrice(currency.lastValue);
@@ -621,6 +625,7 @@ export class TradingService {
               } else {
                 newLastValue = +(currency.lastValue - currency.step).toFixed(6);
                 alertMessage = `⬇️ ${alertMessage} уменьшилась на ${differenceAbs}.`
+                this.dailyTransactions[`${currency.symbol}-down`] = this.dailyTransactions[`${currency.symbol}-down`] + 1;
                 process.env.NODE_ENV === 'development' && console.log(3,difference, 'buy')
 
                 const order = await this.orderService.getActiveOrderByPrice(newLastValue);
