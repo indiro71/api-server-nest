@@ -208,20 +208,21 @@ export class TradingService {
       const orders = await this.orderService.getExhibitedOrders(currency._id);
       const mexOrders = await this.mxcService.getOpenOrders(currency.symbol);
       const openedMexOrdersIds = mexOrders?.filter(order => order.side === 'SELL')?.map(order => order.orderId);
+      if (openedMexOrdersIds && openedMexOrdersIds?.length > 0) {
+        for (const order of orders) {
+          if (!openedMexOrdersIds?.includes(order.orderId)) {
+            order.sold = true;
+            await this.orderService.update(order._id, order);
 
-      for (const order of orders) {
-        if (openedMexOrdersIds && !openedMexOrdersIds?.includes(order.orderId)) {
-          order.sold = true;
-          await this.orderService.update(order._id, order);
+            let alertMessage = `💰 Продано ${order?.quantity} монет по цене ${order?.sellPrice}$ за ${order?.quantity * order?.sellPrice}$`;
+            const profit = (order?.sellPrice - order?.buyPrice) * order?.quantity;
+            alertMessage = `${alertMessage} \nДоход ${profit}$`;
 
-          let alertMessage = `💰 Продано ${order?.quantity} монет по цене ${order?.sellPrice}$ за ${order?.quantity * order?.sellPrice}$`;
-          const profit = (order?.sellPrice - order?.buyPrice) * order?.quantity;
-          alertMessage = `${alertMessage} \nДоход ${profit}$`;
+            this.dailyProfit[`${currency.symbol}-sold`] = this.dailyProfit[`${currency.symbol}-sold`] + profit;
+            this.dailyTransactions[`${currency.symbol}-sold`] = this.dailyTransactions[`${currency.symbol}-sold`] + 1;
 
-          this.dailyProfit[`${currency.symbol}-sold`] = this.dailyProfit[`${currency.symbol}-sold`] + profit;
-          this.dailyTransactions[`${currency.symbol}-sold`] = this.dailyTransactions[`${currency.symbol}-sold`] + 1;
-
-          await this.telegramService.sendMessage(alertMessage);
+            await this.telegramService.sendMessage(alertMessage);
+          }
         }
       }
     } catch (err) {
@@ -526,7 +527,7 @@ export class TradingService {
               await this.currencyService.update(currency._id, currency);
             } else {
               if (100 - (currencyCurrentPrice / currency.lastValue * 100) >= currency.step) {
-                let alertMessage = `⬇️ ${currency.name} - ${currencyCurrentPrice}$`;
+                let alertMessage = `📉 📈 ${currency.name} - ${currencyCurrentPrice}$`;
                 currency.lastValue = currencyCurrentPrice;
                 await this.currencyService.update(currency._id, currency);
 
