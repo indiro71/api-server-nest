@@ -138,10 +138,7 @@ const profit = {
 
 const transactions = {
   'KASUSDT': 0,
-  'KASUSDT-sold': 0,
-  'KASUSDT-exhibited': 0,
-  'KASUSDT-up': 0,
-  'KASUSDT-down': 0,
+  'KASUSDT-sold': 0
 };
 
 @Injectable()
@@ -520,8 +517,11 @@ export class TradingService {
           const differenceAbs = Math.abs(+difference.toFixed(6));
 
           process.env.NODE_ENV === 'development' && console.log(1, currencyCurrentPrice, currency.lastValue, +difference.toFixed(6))
+          if (!currency.isActive) continue;
 
           if (currency.isNewStrategy) {
+            if (currencyCurrentPrice > currency.maxTradePrice || currencyCurrentPrice < currency.minTradePrice) continue;
+
             if (currencyCurrentPrice > currency.lastValue) {
               currency.lastValue = currencyCurrentPrice;
               await this.currencyService.update(currency._id, currency);
@@ -534,7 +534,7 @@ export class TradingService {
                 if (!this.isTraded && currency.isActive) {
                   try {
                     this.isTraded = true;
-                    const quantity = currencyCurrentPrice < currency.maxTradePrice && currencyCurrentPrice > currency.minTradePrice ? currency.purchaseQuantity : 50;
+                    const quantity =  currency.purchaseQuantity;
                     const buyPrice = +(+currencyCurrentPrice + deviation).toFixed(6);
                     const buyData = await this.mxcService.buyOrder(currency.symbol, quantity, buyPrice);
 
@@ -568,7 +568,6 @@ export class TradingService {
                           if (updateOrderData) {
                             alertMessage = `${alertMessage} \nВыставлено ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
                           }
-                          this.dailyTransactions[`${currency.symbol}-exhibited`] = this.dailyTransactions[`${currency.symbol}-exhibited`] + 1;
                         }
                       } catch (e) {
                         alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e.message}`;
@@ -598,7 +597,6 @@ export class TradingService {
               if (difference>0) {
                 newLastValue = +(currency.lastValue + currency.step).toFixed(6);
                 alertMessage = `⬆️ ${alertMessage} увеличилась на ${differenceAbs}.`
-                this.dailyTransactions[`${currency.symbol}-up`] = this.dailyTransactions[`${currency.symbol}-up`] + 1;
                 process.env.NODE_ENV === 'development' && console.log(3,difference, 'sell')
 
                 const order = await this.orderService.getActiveOrderByPrice(currency.lastValue);
@@ -633,7 +631,6 @@ export class TradingService {
               } else {
                 newLastValue = +(currency.lastValue - currency.step).toFixed(6);
                 alertMessage = `⬇️ ${alertMessage} уменьшилась на ${differenceAbs}.`
-                this.dailyTransactions[`${currency.symbol}-down`] = this.dailyTransactions[`${currency.symbol}-down`] + 1;
                 process.env.NODE_ENV === 'development' && console.log(3,difference, 'buy')
 
                 const order = await this.orderService.getActiveOrderByPrice(newLastValue);
