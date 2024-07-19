@@ -12,6 +12,9 @@ export class CreateCurrencyDto {
   @ApiProperty({ example: 0.001, description: 'Step monitoring' })
   readonly step: number;
 
+  @ApiProperty({ example: 0.001, description: 'Step sold' })
+  readonly soldStep: number;
+
   @ApiProperty({ example: 0.140, description: 'Last value' })
   readonly lastValue: number;
 

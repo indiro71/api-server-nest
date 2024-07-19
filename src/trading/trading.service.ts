@@ -526,7 +526,7 @@ export class TradingService {
               currency.lastValue = currencyCurrentPrice;
               await this.currencyService.update(currency._id, currency);
             } else {
-              if (100 - (currencyCurrentPrice / currency.lastValue * 100) >= currency.step) {
+              if (currency.lastValue - currencyCurrentPrice >= currency.step) {
                 let alertMessage = `📉 📈 ${currency.name} - ${currencyCurrentPrice}$`;
                 currency.lastValue = currencyCurrentPrice;
                 await this.currencyService.update(currency._id, currency);
@@ -553,7 +553,7 @@ export class TradingService {
                       }
 
                       try {
-                        const sellPrice = parseFloat((+currencyCurrentPrice + (+currencyCurrentPrice / 100 * 0.3)).toFixed(6));
+                        const sellPrice = parseFloat((+currencyCurrentPrice + currency.soldStep).toFixed(6));
                         const sellData = await this.mxcService.sellOrder(currency.symbol, newOrder.quantity, sellPrice);
                         if (sellData) {
                           newOrderData.sold = false;
