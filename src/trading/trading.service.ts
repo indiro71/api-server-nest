@@ -133,11 +133,13 @@ const stepPrices = {
 
 const profit = {
   'KASUSDT': 0,
+  'MXUSDC': 0,
   'KASUSDT-sold': 0
 };
 
 const transactions = {
   'KASUSDT': 0,
+  'MXUSDC': 0,
   'KASUSDT-sold': 0
 };
 
