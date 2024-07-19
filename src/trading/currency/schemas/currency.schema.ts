@@ -26,6 +26,12 @@ export class Currency {
   })
   step: number;
 
+  @ApiProperty({ example: 0.001, description: 'Step sold' })
+  @Prop({
+    default: 0.001,
+  })
+  soldStep: number;
+
   @ApiProperty({ example: 0.140, description: 'Last value' })
   @Prop({
     required: true,
