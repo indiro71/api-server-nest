@@ -244,7 +244,7 @@ export class TradingService {
           const minimumFindPrice = currencyCurrentPrice - currency.step; //  * 2
 
           const order = await this.orderService.getMissedOrderByPrice(minimumFindPrice, currency._id);
-          if (currency.canSell && order && !this.isTraded) {
+          if (currency.canSell && order && !this.isTraded && !currency.isNewStrategy) {
             let alertMessage = `❔ ${currencyCurrentPrice} - Цена ${currency.name}`;
 
             alertMessage = `${alertMessage} \n Найден не проведенный ордер, купленный по цене ${order?.buyPrice}.`
