@@ -80,6 +80,12 @@ export class Currency {
   })
   sendStat: boolean;
 
+  @ApiProperty({ example: false, description: 'Can change strategy' })
+  @Prop({
+    default: true,
+  })
+  canChangeStrategy: boolean;
+
   @ApiProperty({
     example: '1624216164414',
     description: 'Date create currency',
