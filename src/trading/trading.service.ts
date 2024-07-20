@@ -13,6 +13,7 @@ diffstat - Different statistics
 dailyprofit - Show daily profit
 lastvalue - Set last value
 setquantity - Set purchase quantity
+setstrategy - Set strategy new/old
 
  */
 
@@ -133,14 +134,13 @@ const stepPrices = {
 
 const profit = {
   'KASUSDT': 0,
-  'MXUSDC': 0,
   'KASUSDT-sold': 0
 };
 
 const transactions = {
   'KASUSDT': 0,
-  'MXUSDC': 0,
-  'KASUSDT-sold': 0
+  'KASUSDT-sold': 0,
+  'KASUSDT-up': 0
 };
 
 @Injectable()
@@ -351,6 +351,12 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/setquantity (.+)/, async (msg, match) => {
       await this.setQuantity(match[1]);
     });
+    await this.telegramService.bot.onText(/\/setnewquantity (.+)/, async (msg, match) => {
+      await this.setQuantity(match[1], true);
+    });
+    await this.telegramService.bot.onText(/\/setstrategy (.+)/, async (msg, match) => {
+      await this.setStrategy(match[1]);
+    });
   }
 
   async updateLastValue(newValue: string) {
@@ -370,7 +376,7 @@ export class TradingService {
     }
   }
 
-  async setQuantity(newValue: string) {
+  async setQuantity(newValue: string, isNew?: boolean) {
     const currencies = await this.currencyService.getAll();
     const numberNewValue = +newValue;
     if (!newValue) {
@@ -378,14 +384,42 @@ export class TradingService {
     } else {
       try {
         for (const currency of currencies) {
-          if (!currency?.isNewStrategy) {
+          if (currency?.isNewStrategy && isNew) {
             currency.purchaseQuantity = numberNewValue;
+          } else if(!currency?.isNewStrategy && !isNew) {
+            currency.purchaseQuantity = numberNewValue;
+          }
+          await this.currencyService.update(currency._id, currency);
+        }
+        await this.telegramService.sendMessage(`Значение purchaseQuantity для ${isNew ? 'новой' : 'старой'} стратегии успешно изменено на ${numberNewValue}`);
+      } catch (e) {
+        await this.telegramService.sendMessage(`Ошибка изменения purchaseQuantity`);
+      }
+    }
+  }
+
+  async setStrategy(newStrategy: string) {
+    const currencies = await this.currencyService.getAll();
+    const isNewStrategy = newStrategy === 'new';
+    const strategies = ['new', 'old'];
+    if (!newStrategy || !strategies.includes(newStrategy)) {
+      await this.telegramService.sendMessage(`Изменение стратегии невозможно.`);
+    } else {
+      try {
+        for (const currency of currencies) {
+          if (currency?.isNewStrategy) {
+            currency.isActive = isNewStrategy;
+          } else {
+            currency.canBuy = !isNewStrategy;
+          }
+
+          if (currency.canChangeStrategy) {
             await this.currencyService.update(currency._id, currency);
           }
         }
-        await this.telegramService.sendMessage(`Значение purchaseQuantity успешно изменено на ${numberNewValue}`);
+        await this.telegramService.sendMessage(`Стратегия установлена на ${isNewStrategy ? 'новую' : 'старую'}`);
       } catch (e) {
-        await this.telegramService.sendMessage(`Ошибка изменения purchaseQuantity`);
+        await this.telegramService.sendMessage(`Ошибка изменения стратегии`);
       }
     }
   }
@@ -597,6 +631,7 @@ export class TradingService {
               let alertMessage = `${currencyCurrentPrice} | ${currency.lastValue} \nЦена ${currency.name}`;
 
               if (difference>0) {
+                this.dailyTransactions[`${currency.symbol}-up`] = this.dailyTransactions[`${currency.symbol}-up`] + 1;
                 newLastValue = +(currency.lastValue + currency.step).toFixed(6);
                 alertMessage = `⬆️ ${alertMessage} увеличилась на ${differenceAbs}.`
                 process.env.NODE_ENV === 'development' && console.log(3,difference, 'sell')
