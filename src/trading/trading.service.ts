@@ -246,13 +246,13 @@ export class TradingService {
 
           if(currency.isNewStrategy) {
             const order = await this.orderService.getNonExhibitedOrder(currency._id);
-            if (currency.canSell && order && !this.isTraded && !currency.isNewStrategy) {
+            if (currency.canSell && order && !this.isTraded) {
               let alertMessage = `❔ ${currencyCurrentPrice} - Цена ${currency.name}`;
 
               alertMessage = `${alertMessage} \n Найден не выставленный ордер, купленный по цене ${order?.buyPrice}.`
               try {
                 this.isTraded = true;
-                const sellPrice = parseFloat((+currencyCurrentPrice + currency.soldStep).toFixed(6));
+                const sellPrice = parseFloat((+order.buyPrice + currency.soldStep).toFixed(6));
                 const finalPrice = currencyCurrentPrice > sellPrice ? currencyCurrentPrice : sellPrice;
                 const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, finalPrice);
 
@@ -271,7 +271,7 @@ export class TradingService {
                   }
                 }
               } catch (e) {
-                alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e.message}`;
+                alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e?.data?.msg}`;
                 await this.telegramService.sendMessage(alertMessage);
               } finally {
                 this.isTraded = false;
@@ -747,7 +747,7 @@ export class TradingService {
           }
         }
 
-        if (this.checkCount === 100) {
+        if (this.checkCount === 50) {
           await this.checkMissedSellOrders(prices);
           this.checkCount = 0;
         } else {
