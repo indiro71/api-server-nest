@@ -243,40 +243,76 @@ export class TradingService {
             currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
             prices[currency.symbol] = currencyCurrentPrice;
           }
-          const minimumFindPrice = currencyCurrentPrice - currency.step; //  * 2
 
-          const order = await this.orderService.getMissedOrderByPrice(minimumFindPrice, currency._id);
-          if (currency.canSell && order && !this.isTraded && !currency.isNewStrategy) {
-            let alertMessage = `❔ ${currencyCurrentPrice} - Цена ${currency.name}`;
+          if(currency.isNewStrategy) {
+            const order = await this.orderService.getNonExhibitedOrder(currency._id);
+            if (currency.canSell && order && !this.isTraded && !currency.isNewStrategy) {
+              let alertMessage = `❔ ${currencyCurrentPrice} - Цена ${currency.name}`;
 
-            alertMessage = `${alertMessage} \n Найден не проведенный ордер, купленный по цене ${order?.buyPrice}.`
-            try {
-              process.env.NODE_ENV === 'development' && console.log('missed order', currencyCurrentPrice, currency.lastValue)
+              alertMessage = `${alertMessage} \n Найден не выставленный ордер, купленный по цене ${order?.buyPrice}.`
+              try {
+                this.isTraded = true;
+                const sellPrice = parseFloat((+currencyCurrentPrice + currency.soldStep).toFixed(6));
+                const finalPrice = currencyCurrentPrice > sellPrice ? currencyCurrentPrice : sellPrice;
+                const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, finalPrice);
 
-              this.isTraded = true;
-              const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, currencyCurrentPrice);
-              if (sellData) {
-                order.sold = true;
-                order.sellPrice = sellData?.price || currencyCurrentPrice;
-                order.dateSell = new Date();
-                order.sellResult = JSON.stringify(sellData)
+                if (sellData) {
+                  order.sold = false;
+                  order.exhibited = true;
+                  order.sellPrice = finalPrice;
+                  order.dateSell = new Date();
+                  order.sellResult = JSON.stringify(sellData)
 
-                const updateOrderData = await this.orderService.update(order._id, order);
+                  const updateOrderData = await this.orderService.update(order._id, order);
 
-                if (updateOrderData) {
-                  alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`;
-                  const profit = (sellData?.price - order?.buyPrice) * sellData?.origQty;
-                  alertMessage = `${alertMessage} \nДоход ${profit}$`;
-                  this.dailyProfit[currency.symbol] = this.dailyProfit[currency.symbol] + profit;
-                  this.dailyTransactions[currency.symbol] = this.dailyTransactions[currency.symbol] + 1;
+                  if (updateOrderData) {
+                    alertMessage = `${alertMessage} \nВыставлено ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
+                  }
                 }
+              } catch (e) {
+                alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e.message}`;
+                await this.telegramService.sendMessage(alertMessage);
+              } finally {
+                this.isTraded = false;
               }
-            } catch (e) {
-              alertMessage = `${alertMessage} \nПродажа не получилась по причине: ${e.message}`;
-            } finally {
-              this.isTraded = false;
+              await this.telegramService.sendMessage(alertMessage);
             }
-            await this.telegramService.sendMessage(alertMessage);
+          } else {
+            const minimumFindPrice = currencyCurrentPrice - currency.step; //  * 2
+
+            const order = await this.orderService.getMissedOrderByPrice(minimumFindPrice, currency._id);
+            if (currency.canSell && order && !this.isTraded && !currency.isNewStrategy) {
+              let alertMessage = `❔ ${currencyCurrentPrice} - Цена ${currency.name}`;
+
+              alertMessage = `${alertMessage} \n Найден не проведенный ордер, купленный по цене ${order?.buyPrice}.`
+              try {
+                process.env.NODE_ENV === 'development' && console.log('missed order', currencyCurrentPrice, currency.lastValue)
+
+                this.isTraded = true;
+                const sellData = await this.mxcService.sellOrder(currency.symbol, order.quantity, currencyCurrentPrice);
+                if (sellData) {
+                  order.sold = true;
+                  order.sellPrice = sellData?.price || currencyCurrentPrice;
+                  order.dateSell = new Date();
+                  order.sellResult = JSON.stringify(sellData)
+
+                  const updateOrderData = await this.orderService.update(order._id, order);
+
+                  if (updateOrderData) {
+                    alertMessage = `${alertMessage} \nПродано ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`;
+                    const profit = (sellData?.price - order?.buyPrice) * sellData?.origQty;
+                    alertMessage = `${alertMessage} \nДоход ${profit}$`;
+                    this.dailyProfit[currency.symbol] = this.dailyProfit[currency.symbol] + profit;
+                    this.dailyTransactions[currency.symbol] = this.dailyTransactions[currency.symbol] + 1;
+                  }
+                }
+              } catch (e) {
+                alertMessage = `${alertMessage} \nПродажа не получилась по причине: ${e.message}`;
+              } finally {
+                this.isTraded = false;
+              }
+              await this.telegramService.sendMessage(alertMessage);
+            }
           }
         }
       } catch (err) {
@@ -710,7 +746,7 @@ export class TradingService {
           }
         }
 
-        if (this.checkCount === 50) {
+        if (this.checkCount === 100) {
           await this.checkMissedSellOrders(prices);
           this.checkCount = 0;
         } else {
