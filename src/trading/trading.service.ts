@@ -260,6 +260,7 @@ export class TradingService {
                   order.sold = false;
                   order.exhibited = true;
                   order.sellPrice = finalPrice;
+                  order.orderId = sellData?.orderId;
                   order.dateSell = new Date();
                   order.sellResult = JSON.stringify(sellData)
 
@@ -633,7 +634,7 @@ export class TradingService {
                           newOrderData.sellPrice = sellPrice;
                           newOrderData.orderId = sellData?.orderId;
                           newOrderData.dateSell = new Date();
-                          newOrderData.sellResult = JSON.stringify(sellData)
+                          newOrderData.sellResult = JSON.stringify(sellData);
 
                           const updateOrderData = await this.orderService.update(newOrderData._id, newOrderData);
 
