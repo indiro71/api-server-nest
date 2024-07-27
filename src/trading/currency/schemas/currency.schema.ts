@@ -86,6 +86,12 @@ export class Currency {
   })
   canChangeStrategy: boolean;
 
+  @ApiProperty({ example: false, description: 'Is statistics' })
+  @Prop({
+    default: false,
+  })
+  isStatistics: boolean;
+
   @ApiProperty({
     example: '1624216164414',
     description: 'Date create currency',

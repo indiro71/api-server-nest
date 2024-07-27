@@ -421,6 +421,8 @@ export class TradingService {
     } else {
       try {
         for (const currency of currencies) {
+          if (currency?.isStatistics) continue;
+
           if (currency?.isNewStrategy && isNew) {
             currency.purchaseQuantity = numberNewValue;
           } else if(!currency?.isNewStrategy && !isNew) {
@@ -448,6 +450,10 @@ export class TradingService {
             currency.isActive = isNewStrategy;
           } else {
             currency.canBuy = !isNewStrategy;
+          }
+
+          if (currency.isStatistics) {
+            currency.isActive = !isNewStrategy;
           }
 
           if (currency.canChangeStrategy) {
