@@ -92,6 +92,12 @@ export class Currency {
   })
   isStatistics: boolean;
 
+  @ApiProperty({ example: false, description: 'Under sold step' })
+  @Prop({
+    default: false,
+  })
+  underSoldStep: boolean;
+
   @ApiProperty({
     example: '1624216164414',
     description: 'Date create currency',

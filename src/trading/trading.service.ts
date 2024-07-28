@@ -602,12 +602,21 @@ export class TradingService {
             if (currencyCurrentPrice > currency.maxTradePrice || currencyCurrentPrice < currency.minTradePrice) continue;
 
             if (currencyCurrentPrice > currency.lastValue) {
-              currency.lastValue = currencyCurrentPrice;
-              await this.currencyService.update(currency._id, currency);
+              if (currency.underSoldStep) {
+                currency.lastValue = currencyCurrentPrice;
+                await this.currencyService.update(currency._id, currency);
+              } else {
+                if(currencyCurrentPrice - currency.soldStep > currency.lastValue) {
+                  currency.lastValue = currencyCurrentPrice;
+                  currency.underSoldStep = true;
+                  await this.currencyService.update(currency._id, currency);
+                }
+              }
             } else {
               if (currency.lastValue - currencyCurrentPrice >= currency.step) {
                 let alertMessage = `📉 📈 ${currency.name} - ${currencyCurrentPrice}$`;
                 currency.lastValue = currencyCurrentPrice;
+                currency.underSoldStep = false;
                 await this.currencyService.update(currency._id, currency);
 
                 if (!this.isTraded && currency.isActive) {
