@@ -14,6 +14,9 @@ dailyprofit - Show daily profit
 lastvalue - Set last value
 setquantity - Set purchase quantity
 setstrategy - Set strategy new/old
+enabletrade - Enable Trade
+disabletrade - Disable Trade
+tradestatus - Trade Status
 
  */
 
@@ -147,6 +150,7 @@ const transactions = {
 export class TradingService {
   private isTraded: boolean;
   private isMonitoring: boolean;
+  private isActiveTrade: boolean;
   private checkCount: number;
   private dailyProfit: Record<string, number>;
   private dailyTransactions: Record<string, number>;
@@ -160,6 +164,7 @@ export class TradingService {
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
     this.isMonitoring = false;
+    this.isActiveTrade = true;
     this.checkCount = 0;
     this.dailyProfit = {...profit};
     this.dailyTransactions = {...transactions};
@@ -271,8 +276,7 @@ export class TradingService {
                   }
                 }
               } catch (e) {
-                alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e?.data?.msg}`;
-                await this.telegramService.sendMessage(alertMessage);
+                alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e.message}`;
               } finally {
                 this.isTraded = false;
               }
@@ -366,6 +370,15 @@ export class TradingService {
     });
     await this.telegramService.bot.onText(/\/moneystat/, async () => {
       await this.sendMoneyStatistics();
+    });
+    await this.telegramService.bot.onText(/\/enabletrade/, async () => {
+      await this.enableTrade();
+    });
+    await this.telegramService.bot.onText(/\/disabletrade/, async () => {
+      await this.disableTrade();
+    });
+    await this.telegramService.bot.onText(/\/tradestatus/, async () => {
+      await this.tradeStatus();
     });
     await this.telegramService.bot.onText(/\/diffstat/, async () => {
       await this.sendDiffStatistics();
@@ -476,6 +489,20 @@ export class TradingService {
     return message;
   }
 
+  async enableTrade() {
+    this.isActiveTrade = true;
+    await this.telegramService.sendMessage('Бот запущен');
+  }
+
+  async disableTrade() {
+    this.isActiveTrade = false;
+    await this.telegramService.sendMessage('Бот остановлен');
+  }
+
+  async tradeStatus() {
+    await this.telegramService.sendMessage(this.isActiveTrade ? 'Бот работает' : 'Бот остановлен');
+  }
+
   diffStat() {
     let diffMessage = 'Статистика по интервалам: \n';
     Object.keys(this.diffStats).forEach(currency => {
@@ -576,6 +603,8 @@ export class TradingService {
   }
 
   async monitoring() {
+    if (!this.isActiveTrade) return;
+
     const currencies = await this.currencyService.getAll();
     if (currencies?.length > 0 && !this.isTraded && !this.isMonitoring) {
       try {
@@ -762,7 +791,7 @@ export class TradingService {
           }
         }
 
-        if (this.checkCount === 50) {
+        if (this.checkCount === 100) {
           await this.checkMissedSellOrders(prices);
           this.checkCount = 0;
         } else {
