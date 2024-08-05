@@ -404,7 +404,7 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/setquantity (.+)/, async (msg, match) => {
       await this.setQuantity(match[1]);
     });
-    await this.telegramService.bot.onText(/\/sellbuy(?: (.+))?/, async (msg, match) => {
+    await this.telegramService.bot.onText(/\/sellandbuy(?: (.+))?/, async (msg, match) => {
       await this.sellAndBuy(match ? match[1] : 5000);
     });
     await this.telegramService.bot.onText(/\/sellorder(?: (.+))?/, async (msg, match) => {
@@ -493,7 +493,7 @@ export class TradingService {
       const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(symbol);
       if (currencyCurrentPrice) {
         const buyPrice = parseFloat((+currencyCurrentPrice + deviation).toFixed(6));
-        const buyData = await this.mxcService.sellOrder(symbol, quantity, buyPrice);
+        const buyData = await this.mxcService.buyOrder(symbol, quantity, buyPrice);
 
         if (buyData) {
           await this.telegramService.sendMessage(`Куплено ${quantity} монет по ${buyPrice}$ за ${buyPrice * quantity}$`);
