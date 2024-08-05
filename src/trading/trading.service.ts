@@ -7,16 +7,19 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 
 /* tg commands---------------
 
+sellorder - Sell  order - (5000)
+buyorder - Buy order - (5000)
+sellandbuy - Sell and buy order - (5000)
 stat - All statistics
-moneystat - Money statistics
-diffstat - Different statistics
-dailyprofit - Show daily profit
-lastvalue - Set last value
-setquantity - Set purchase quantity
-setstrategy - Set strategy new/old
 enabletrade - Enable Trade
 disabletrade - Disable Trade
 tradestatus - Trade Status
+dailyprofit - Show daily profit
+moneystat - Money statistics
+diffstat - Different statistics
+lastvalue - Set last value
+setquantity - Set purchase quantity
+setstrategy - Set strategy new/old
 
  */
 
@@ -316,7 +319,7 @@ export class TradingService {
               } finally {
                 this.isTraded = false;
               }
-              await this.telegramService.sendMessage(alertMessage);
+              // await this.telegramService.sendMessage(alertMessage);
             }
           }
         }
@@ -401,6 +404,15 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/setquantity (.+)/, async (msg, match) => {
       await this.setQuantity(match[1]);
     });
+    await this.telegramService.bot.onText(/\/sellbuy(?: (.+))?/, async (msg, match) => {
+      await this.sellAndBuy(match ? match[1] : 5000);
+    });
+    await this.telegramService.bot.onText(/\/sellorder(?: (.+))?/, async (msg, match) => {
+      await this.sellOrder(match ? match[1] : 5000);
+    });
+    await this.telegramService.bot.onText(/\/buyorder(?: (.+))?/, async (msg, match) => {
+      await this.buyOrder(match ? match[1] : 5000);
+    });
     await this.telegramService.bot.onText(/\/setnewquantity (.+)/, async (msg, match) => {
       await this.setQuantity(match[1], true);
     });
@@ -450,6 +462,66 @@ export class TradingService {
     }
   }
 
+  async sellAndBuy(quantity = 5000) {
+    try {
+      const deviation = 0.00001;
+      const step = 0.002;
+      const symbol = 'KASUSDT';
+      const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(symbol);
+      if (currencyCurrentPrice) {
+        const sellPrice = parseFloat((+currencyCurrentPrice - deviation).toFixed(6));
+        const sellData = await this.mxcService.sellOrder(symbol, quantity, sellPrice);
+
+        if (sellData) {
+          const buyPrice = parseFloat((+currencyCurrentPrice - step).toFixed(6));
+          const buyData = await this.mxcService.buyOrder(symbol, quantity, buyPrice);
+
+          if (buyData) {
+            await this.telegramService.sendMessage(`Продано ${quantity} монет по ${sellPrice}$ и куплено по ${buyPrice}$. \n\n Доход ${(sellPrice - buyPrice) * quantity}$`);
+          }
+        }
+      }
+    } catch (e) {
+      await this.telegramService.sendMessage(`Ошибка продажи и покупки монеты`);
+    }
+  }
+
+  async buyOrder(quantity = 5000) {
+    try {
+      const deviation = 0.00001;
+      const symbol = 'KASUSDT';
+      const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(symbol);
+      if (currencyCurrentPrice) {
+        const buyPrice = parseFloat((+currencyCurrentPrice + deviation).toFixed(6));
+        const buyData = await this.mxcService.sellOrder(symbol, quantity, buyPrice);
+
+        if (buyData) {
+          await this.telegramService.sendMessage(`Куплено ${quantity} монет по ${buyPrice}$ за ${buyPrice * quantity}$`);
+        }
+      }
+    } catch (e) {
+      await this.telegramService.sendMessage(`Ошибка покупки монеты`);
+    }
+  }
+
+  async sellOrder(quantity = 5000) {
+    try {
+      const deviation = 0.00001;
+      const symbol = 'KASUSDT';
+      const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(symbol);
+      if (currencyCurrentPrice) {
+        const sellPrice = parseFloat((+currencyCurrentPrice - deviation).toFixed(6));
+        const sellData = await this.mxcService.sellOrder(symbol, quantity, sellPrice);
+
+        if (sellData) {
+          await this.telegramService.sendMessage(`Продано ${quantity} монет по ${sellPrice}$ за ${sellPrice * quantity}$`);
+        }
+      }
+    } catch (e) {
+      await this.telegramService.sendMessage(`Ошибка продажи монеты`);
+    }
+  }
+
   async setStrategy(newStrategy: string) {
     const currencies = await this.currencyService.getAll();
     const isNewStrategy = newStrategy === 'new';
@@ -461,12 +533,15 @@ export class TradingService {
         for (const currency of currencies) {
           if (currency?.isNewStrategy) {
             currency.isActive = isNewStrategy;
+            currency.sendNotification = isNewStrategy;
           } else {
             currency.canBuy = !isNewStrategy;
+            currency.sendNotification = !isNewStrategy;
           }
 
           if (currency.isStatistics) {
             currency.isActive = !isNewStrategy;
+            currency.sendNotification = false;
           }
 
           if (currency.canChangeStrategy) {
@@ -791,7 +866,7 @@ export class TradingService {
           }
         }
 
-        if (this.checkCount === 100) {
+        if (this.checkCount === 30) {
           await this.checkMissedSellOrders(prices);
           this.checkCount = 0;
         } else {
