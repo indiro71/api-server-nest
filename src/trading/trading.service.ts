@@ -7,13 +7,14 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 
 /* tg commands---------------
 
+stat - All statistics
 sellorder - Sell  order - (5000)
 buyorder - Buy order - (5000)
 sellandbuy - Sell and buy order - (5000)
-stat - All statistics
 enabletrade - Enable Trade
 disabletrade - Disable Trade
 tradestatus - Trade Status
+
 dailyprofit - Show daily profit
 moneystat - Money statistics
 diffstat - Different statistics
@@ -717,7 +718,8 @@ export class TradingService {
                 }
               }
             } else {
-              if (currency.lastValue - currencyCurrentPrice >= currency.step) {
+              const step = currency.underSoldStep ? currency.soldStep : currency.step;
+              if (currency.lastValue - currencyCurrentPrice >= step) {
                 let alertMessage = `📉 📈 ${currency.name} - ${currencyCurrentPrice}$`;
                 currency.lastValue = currencyCurrentPrice;
                 currency.underSoldStep = false;
