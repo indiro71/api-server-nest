@@ -141,12 +141,12 @@ const stepPrices = {
 
 const profit = {
   'KASUSDT': 0,
-  'KASUSDT-sold': 0
+  'KASUSDT-newStrategy': 0
 };
 
 const transactions = {
   'KASUSDT': 0,
-  'KASUSDT-sold': 0,
+  'KASUSDT-newStrategy': 0,
   'KASUSDT-up': 0
 };
 
@@ -222,12 +222,12 @@ export class TradingService {
             order.sold = true;
             await this.orderService.update(order._id, order);
 
-            let alertMessage = `💰 Продано ${order?.quantity} монет по цене ${order?.sellPrice}$ за ${order?.quantity * order?.sellPrice}$`;
+            let alertMessage = `💰 Продано ${order?.quantity} монет по цене ${order?.sellPrice}$ за ${(order?.quantity * order?.sellPrice).toFixed(2)}$`;
             const profit = (order?.sellPrice - order?.buyPrice) * order?.quantity;
-            alertMessage = `${alertMessage} \nДоход ${profit}$`;
+            alertMessage = `${alertMessage} \nДоход ${profit.toFixed(2)}$`;
 
-            this.dailyProfit[`${currency.symbol}-sold`] = this.dailyProfit[`${currency.symbol}-sold`] + profit;
-            this.dailyTransactions[`${currency.symbol}-sold`] = this.dailyTransactions[`${currency.symbol}-sold`] + 1;
+            this.dailyProfit[`${currency.symbol}-newStrategy`] = this.dailyProfit[`${currency.symbol}-newStrategy`] + profit;
+            this.dailyTransactions[`${currency.symbol}-newStrategy`] = this.dailyTransactions[`${currency.symbol}-newStrategy`] + 1;
 
             await this.telegramService.sendMessage(alertMessage);
           }
@@ -728,7 +728,7 @@ export class TradingService {
                 if (!this.isTraded && currency.isActive) {
                   try {
                     this.isTraded = true;
-                    const quantity =  currency.purchaseQuantity;
+                    const quantity =  Math.round(currency.purchaseQuantity / currencyCurrentPrice);
                     const buyPrice = +(+currencyCurrentPrice + deviation).toFixed(6);
                     const buyData = await this.mxcService.buyOrder(currency.symbol, quantity, buyPrice);
 
@@ -833,12 +833,13 @@ export class TradingService {
                   try {
                     this.isTraded = true;
                     const buyPrice = newLastValue - currencyCurrentPrice > currency.step  ? currencyCurrentPrice : newLastValue;
-                    const buyData = await this.mxcService.buyOrder(currency.symbol, currency.purchaseQuantity, buyPrice + deviation);
+                    const quantity =  Math.round(currency.purchaseQuantity / buyPrice);
+                    const buyData = await this.mxcService.buyOrder(currency.symbol, quantity, buyPrice + deviation);
 
                     if (buyData) {
                       const newOrder: CreateOrderDto = {
                         currency: currency._id,
-                        quantity: currency.purchaseQuantity,
+                        quantity,
                         buyPrice: newLastValue,
                         currencyPrice: buyData?.price || newLastValue,
                         buyResult: JSON.stringify(buyData)
