@@ -8,13 +8,14 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 /* tg commands---------------
 
 stat - All statistics
+buyandsell - Buy and sell order
 sellorder - Sell  order - (5000)
 buyorder - Buy order - (5000)
-sellandbuy - Sell and buy order - (5000)
 enabletrade - Enable Trade
 disabletrade - Disable Trade
 tradestatus - Trade Status
 
+sellandbuy - Sell and buy order - (5000)
 dailyprofit - Show daily profit
 moneystat - Money statistics
 diffstat - Different statistics
@@ -406,10 +407,13 @@ export class TradingService {
       await this.setQuantity(match[1]);
     });
     await this.telegramService.bot.onText(/\/sellandbuy(?: (.+))?/, async (msg, match) => {
-      await this.sellAndBuy(match ? match[1] : 5000);
+      await this.sellAndBuy(match ? match[1] : 3000);
+    });
+    await this.telegramService.bot.onText(/\/buyandsell(?: (.+))?/, async (msg, match) => {
+      await this.buyAndSell(match ? match[1] : null);
     });
     await this.telegramService.bot.onText(/\/sellorder(?: (.+))?/, async (msg, match) => {
-      await this.sellOrder(match ? match[1] : 5000);
+      await this.sellOrder(match ? match[1] : 3000);
     });
     await this.telegramService.bot.onText(/\/buyorder(?: (.+))?/, async (msg, match) => {
       await this.buyOrder(match ? match[1] : 5000);
@@ -466,7 +470,7 @@ export class TradingService {
   async sellAndBuy(quantity = 5000) {
     try {
       const deviation = 0.00001;
-      const step = 0.002;
+      const step = 0.0003;
       const symbol = 'KASUSDT';
       const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(symbol);
       if (currencyCurrentPrice) {
@@ -485,6 +489,67 @@ export class TradingService {
     } catch (e) {
       await this.telegramService.sendMessage(`Ошибка продажи и покупки монеты`);
     }
+  }
+
+  async buyAndSell(quant) {
+    const currencies = await this.currencyService.getAll();
+    const currency = currencies.find(cur => cur.isNewStrategy && !cur.isStatistics && cur.isActive);
+    const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
+
+    let alertMessage = `📉 📈 ${currency.name} - ${currencyCurrentPrice}$`;
+
+    if (!this.isTraded) {
+      try {
+        const deviation = 0.00001;
+        this.isTraded = true;
+        const quantity = quant ||  Math.round(currency.purchaseQuantity / currencyCurrentPrice);
+        const buyPrice = +(+currencyCurrentPrice + deviation).toFixed(6);
+        const buyData = await this.mxcService.buyOrder(currency.symbol, quantity, buyPrice);
+
+        if (buyData) {
+          const newOrder: CreateOrderDto = {
+            currency: currency._id,
+            quantity: quantity,
+            buyPrice: buyPrice,
+            currencyPrice: currencyCurrentPrice,
+            buyResult: JSON.stringify(buyData)
+          }
+
+          const newOrderData = await this.orderService.create(newOrder);
+          if (newOrderData) {
+            alertMessage = `${alertMessage} \nКуплено ${buyData?.origQty} монет по цене ${buyData?.price}$ за ${buyData?.origQty * buyData?.price}$`;
+          }
+
+          try {
+            const sellPrice = parseFloat((+currencyCurrentPrice + currency.soldStep).toFixed(6));
+            const sellData = await this.mxcService.sellOrder(currency.symbol, newOrder.quantity, sellPrice);
+            if (sellData) {
+              newOrderData.sold = false;
+              newOrderData.exhibited = true;
+              newOrderData.sellPrice = sellPrice;
+              newOrderData.orderId = sellData?.orderId;
+              newOrderData.dateSell = new Date();
+              newOrderData.sellResult = JSON.stringify(sellData);
+
+              const updateOrderData = await this.orderService.update(newOrderData._id, newOrderData);
+
+              if (updateOrderData) {
+                alertMessage = `${alertMessage} \nВыставлено ${sellData?.origQty} монет по цене ${sellData?.price}$ за ${sellData?.origQty * sellData?.price}$`
+              }
+            }
+          } catch (e) {
+            alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e.message}`;
+            await this.telegramService.sendMessage(alertMessage);
+          }
+        }
+      } catch (e) {
+        alertMessage = `${alertMessage} \nПокупка не получилась по причине: ${e.message}`;
+        process.env.NODE_ENV === 'development' && console.log(5, 'buy error', e)
+      } finally {
+        this.isTraded = false;
+      }
+    }
+    await this.telegramService.sendMessage(alertMessage);
   }
 
   async buyOrder(quantity = 5000) {
