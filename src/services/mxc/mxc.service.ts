@@ -28,6 +28,18 @@ export class MxcService {
     return response.data.price;
   }
 
+  async getOrderBook(symbol: string, limit:number = 25): Promise<any> {
+    const url = `https://api.mexc.com/api/v3/depth?symbol=${symbol}&limit=${limit}`;
+    const response = await this.httpService.get(url).toPromise();
+    return response.data;
+  }
+
+  async getTradesList(symbol: string, limit:number = 50): Promise<any> {
+    const url = `https://api.mexc.com/api/v3/trades?symbol=${symbol}&limit=${limit}`;
+    const response = await this.httpService.get(url).toPromise();
+    return response.data;
+  }
+
   async buyOrder(symbol: string, quantity: number, buyPrice?: number) {
     const price = buyPrice || await this.getCurrencyPrice(symbol);
     const data = await this.newOrder(symbol, quantity, price, 'BUY', process.env.NODE_ENV === 'development')
