@@ -9,13 +9,13 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 
 stat - All statistics
 buyandsell - Buy and sell order
+sellandbuy - Sell and buy order - (5000)
 sellorder - Sell  order - (5000)
 buyorder - Buy order - (5000)
 enabletrade - Enable Trade
 disabletrade - Disable Trade
 tradestatus - Trade Status
 
-sellandbuy - Sell and buy order - (5000)
 dailyprofit - Show daily profit
 moneystat - Money statistics
 diffstat - Different statistics
@@ -157,6 +157,7 @@ export class TradingService {
   private isMonitoring: boolean;
   private isActiveTrade: boolean;
   private checkCount: number;
+  private bookCount: number;
   private dailyProfit: Record<string, number>;
   private dailyTransactions: Record<string, number>;
   private initialStats: Record<string, CurrencyStat>;
@@ -171,6 +172,7 @@ export class TradingService {
     this.isMonitoring = false;
     this.isActiveTrade = true;
     this.checkCount = 0;
+    this.bookCount = 0;
     this.dailyProfit = {...profit};
     this.dailyTransactions = {...transactions};
     this.initialStats = {...inStats};
@@ -741,6 +743,52 @@ export class TradingService {
     this.dailyTransactions = {...transactions};
 
     await this.telegramService.sendMessage("Статистика полностью обнулена");
+  }
+
+  async monitoringBook() {
+    try {
+      if (this.bookCount > 0) {
+        this.bookCount = this.bookCount - 1;
+
+        return;
+      }
+
+      const { bids, asks }: {
+        bids: Array<Array<string>>,
+        asks: Array<Array<string>>,
+      } = await this.mxcService.getOrderBook('KASUSDT');
+
+      const buyOrdersSum = Math.round(bids.reduce((currentSum, currentValue) => currentSum + (+currentValue[1]), 0));
+      const sellOrdersSum = Math.round(asks.reduce((currentSum, currentValue) => currentSum + (+currentValue[1]), 0));
+
+      const allOrdersSum = buyOrdersSum + sellOrdersSum;
+
+      const buyPercent = Math.round(buyOrdersSum / allOrdersSum * 100);
+      const sellPercent = Math.round(sellOrdersSum / allOrdersSum * 100);
+
+      // console.log(1115, `${buyOrdersSum} KAS/${sellOrdersSum} KAS`);
+      // console.log(1116, `${buyPercent}%/${sellPercent}%`);
+
+      const sum = 300000;
+      const percent = 80;
+      const alonePercent = 92;
+      const aloneSum = 500000;
+
+      if (sellOrdersSum > sum && sellPercent > percent || sellPercent > alonePercent || sellOrdersSum > aloneSum) {
+        this.bookCount = 15;
+
+        await this.telegramService.sendMessage(`🚨⬇️ Фиксация массовой продажи KAS \n\n Продается ${sellOrdersSum} монет - ${sellPercent}%`);
+      }
+
+      if (buyOrdersSum > sum && buyPercent > percent || buyPercent > alonePercent || buyOrdersSum > aloneSum) {
+        this.bookCount = 15;
+
+        await this.telegramService.sendMessage(`🚨⬆️ Фиксация массовой покупки KAS \n\n Покупается  ${buyOrdersSum} монет - ${buyPercent}%`);
+      }
+    } catch (err) {
+      console.error(err?.message);
+      await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+    }
   }
 
   async monitoring() {

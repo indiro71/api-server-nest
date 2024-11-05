@@ -111,6 +111,15 @@ export class CronService {
     }
   }
 
+  @Cron('*/3 * * * * *')
+  async tradingCronMonitoringBook() {
+    try {
+      await this.tradingService.monitoringBook();
+    } catch (e) {
+      this.logger.error('TradingCronBook error', e.message);
+    }
+  }
+
   @Cron('1 0 * * *')
   async tradingCronClearStatistics() {
     try {
