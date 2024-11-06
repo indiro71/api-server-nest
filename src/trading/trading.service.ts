@@ -769,10 +769,10 @@ export class TradingService {
       // console.log(1115, `${buyOrdersSum} KAS/${sellOrdersSum} KAS`);
       // console.log(1116, `${buyPercent}%/${sellPercent}%`);
 
-      const sum = 300000;
-      const percent = 80;
-      const alonePercent = 92;
-      const aloneSum = 500000;
+      const sum = 600000;
+      const percent = 85;
+      const alonePercent = 95;
+      const aloneSum = 1000000;
 
       if (sellOrdersSum > sum && sellPercent > percent || sellPercent > alonePercent || sellOrdersSum > aloneSum) {
         this.bookCount = 15;
