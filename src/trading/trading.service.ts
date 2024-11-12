@@ -234,7 +234,7 @@ export class TradingService {
             this.dailyProfit[`${currency.symbol}-newStrategy`] = this.dailyProfit[`${currency.symbol}-newStrategy`] + profit;
             this.dailyTransactions[`${currency.symbol}-newStrategy`] = this.dailyTransactions[`${currency.symbol}-newStrategy`] + 1;
 
-            this.autoBuyCount = 60;
+            this.autoBuyCount = 30;
             await this.telegramService.sendMessage(alertMessage);
           }
         }
@@ -794,8 +794,8 @@ export class TradingService {
     if (!this.isActiveTrade) return;
 
     if (this.autoBuyCount === 1) {
-      await this.buyAndSell();
       this.autoBuyCount = 0;
+      await this.buyAndSell();
       return;
     }
 
