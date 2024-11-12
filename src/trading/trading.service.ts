@@ -158,6 +158,7 @@ export class TradingService {
   private isActiveTrade: boolean;
   private checkCount: number;
   private bookCount: number;
+  private autoBuyCount: number;
   private dailyProfit: Record<string, number>;
   private dailyTransactions: Record<string, number>;
   private initialStats: Record<string, CurrencyStat>;
@@ -173,6 +174,7 @@ export class TradingService {
     this.isActiveTrade = true;
     this.checkCount = 0;
     this.bookCount = 0;
+    this.autoBuyCount = 0;
     this.dailyProfit = {...profit};
     this.dailyTransactions = {...transactions};
     this.initialStats = {...inStats};
@@ -232,6 +234,7 @@ export class TradingService {
             this.dailyProfit[`${currency.symbol}-newStrategy`] = this.dailyProfit[`${currency.symbol}-newStrategy`] + profit;
             this.dailyTransactions[`${currency.symbol}-newStrategy`] = this.dailyTransactions[`${currency.symbol}-newStrategy`] + 1;
 
+            this.autoBuyCount = 60;
             await this.telegramService.sendMessage(alertMessage);
           }
         }
@@ -493,7 +496,7 @@ export class TradingService {
     }
   }
 
-  async buyAndSell(quant) {
+  async buyAndSell(quant?: number) {
     const currencies = await this.currencyService.getAll();
     const currency = currencies.find(cur => cur.isNewStrategy && !cur.isStatistics && cur.isActive);
     const currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
@@ -766,22 +769,18 @@ export class TradingService {
       const buyPercent = Math.round(buyOrdersSum / allOrdersSum * 100);
       const sellPercent = Math.round(sellOrdersSum / allOrdersSum * 100);
 
-      // console.log(1115, `${buyOrdersSum} KAS/${sellOrdersSum} KAS`);
-      // console.log(1116, `${buyPercent}%/${sellPercent}%`);
 
-      const sum = 600000;
-      const percent = 85;
-      const alonePercent = 95;
-      const aloneSum = 1000000;
+      const sum = 1000000;
+      const percent = 90;
 
-      if (sellOrdersSum > sum && sellPercent > percent || sellPercent > alonePercent || sellOrdersSum > aloneSum) {
-        this.bookCount = 15;
+      if (sellOrdersSum > sum && sellPercent > percent) {
+        this.bookCount = 20;
 
         await this.telegramService.sendMessage(`🚨⬇️ Фиксация массовой продажи KAS \n\n Продается ${sellOrdersSum} монет - ${sellPercent}%`);
       }
 
-      if (buyOrdersSum > sum && buyPercent > percent || buyPercent > alonePercent || buyOrdersSum > aloneSum) {
-        this.bookCount = 15;
+      if (buyOrdersSum > sum && buyPercent > percent) {
+        this.bookCount = 20;
 
         await this.telegramService.sendMessage(`🚨⬆️ Фиксация массовой покупки KAS \n\n Покупается  ${buyOrdersSum} монет - ${buyPercent}%`);
       }
@@ -793,6 +792,14 @@ export class TradingService {
 
   async monitoring() {
     if (!this.isActiveTrade) return;
+
+    if (this.autoBuyCount === 1) {
+      await this.buyAndSell();
+      this.autoBuyCount = 0;
+      return;
+    }
+
+    this.autoBuyCount = this.autoBuyCount - 1;
 
     const currencies = await this.currencyService.getAll();
     if (currencies?.length > 0 && !this.isTraded && !this.isMonitoring) {
@@ -841,6 +848,7 @@ export class TradingService {
                 if (!this.isTraded && currency.isActive) {
                   try {
                     this.isTraded = true;
+                    this.autoBuyCount = 0;
                     const quantity =  Math.round(currency.purchaseQuantity / currencyCurrentPrice);
                     const buyPrice = +(+currencyCurrentPrice + deviation).toFixed(6);
                     const buyData = await this.mxcService.buyOrder(currency.symbol, quantity, buyPrice);
