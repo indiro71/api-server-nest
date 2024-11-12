@@ -111,7 +111,7 @@ export class CronService {
     }
   }
 
-  @Cron('*/3 * * * * *')
+  // @Cron('*/5 * * * * *')
   async tradingCronMonitoringBook() {
     try {
       await this.tradingService.monitoringBook();
