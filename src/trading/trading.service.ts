@@ -17,6 +17,7 @@ disabletrade - Disable Trade
 tradestatus - Trade Status
 
 dailyprofit - Show daily profit
+togglerise - Toggle Buy on rise
 moneystat - Money statistics
 diffstat - Different statistics
 lastvalue - Set last value
@@ -156,6 +157,7 @@ export class TradingService {
   private isTraded: boolean;
   private isMonitoring: boolean;
   private isActiveTrade: boolean;
+  private buyOnRise: boolean;
   private checkCount: number;
   private bookCount: number;
   private autoBuyCount: number;
@@ -171,6 +173,7 @@ export class TradingService {
   constructor(private readonly mxcService: MxcService, private readonly currencyService: CurrencyService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
     this.isTraded = false;
     this.isMonitoring = false;
+    this.buyOnRise = false;
     this.isActiveTrade = true;
     this.checkCount = 0;
     this.bookCount = 0;
@@ -383,6 +386,9 @@ export class TradingService {
     });
     await this.telegramService.bot.onText(/\/enabletrade/, async () => {
       await this.enableTrade();
+    });
+    await this.telegramService.bot.onText(/\/togglerise/, async () => {
+      await this.toggleRise();
     });
     await this.telegramService.bot.onText(/\/disabletrade/, async () => {
       await this.disableTrade();
@@ -640,6 +646,11 @@ export class TradingService {
     await this.telegramService.sendMessage('Бот запущен');
   }
 
+  async toggleRise() {
+    this.buyOnRise = !this.buyOnRise;
+    await this.telegramService.sendMessage(`Покупка на возрастании ${this.buyOnRise ? 'включена' : 'отключена'}`);
+  }
+
   async disableTrade() {
     this.isActiveTrade = false;
     await this.telegramService.sendMessage('Бот остановлен');
@@ -793,19 +804,19 @@ export class TradingService {
   async monitoring() {
     if (!this.isActiveTrade) return;
 
-    if (this.autoBuyCount === 1) {
-      this.autoBuyCount = 0;
-      await this.buyAndSell();
-      return;
-    }
-
-    this.autoBuyCount = this.autoBuyCount - 1;
-
     const currencies = await this.currencyService.getAll();
     if (currencies?.length > 0 && !this.isTraded && !this.isMonitoring) {
       try {
+        this.autoBuyCount = this.autoBuyCount - 1;
         this.isMonitoring = true;
         const prices = {};
+
+        if (this.autoBuyCount === 1 && this.buyOnRise) {
+          this.autoBuyCount = 0;
+          await this.buyAndSell();
+          this.isMonitoring = false;
+          return;
+        }
 
         for (const currency of currencies) {
           const deviation = 0.00001;
