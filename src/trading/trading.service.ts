@@ -29,6 +29,7 @@ setstrategy - Set strategy new/old
 
 const initialDiffStats = {
   'KASUSDT': [],
+  'BTCUSDC': [],
   'MXUSDC': [],
 };
 for (let i = 0; i<20; i++) {
@@ -52,6 +53,7 @@ for (let i = 0; i<20; i++) {
 const curSteps = {
   'KASUSDT': 0.002,
   'MXUSDC': 0.1,
+  'BTCUSDC': 0.1,
 }
 
 const inStats = {
@@ -144,11 +146,13 @@ const stepPrices = {
 
 const profit = {
   'KASUSDT': 0,
+  'BTCUSDC': 0,
   'KASUSDT-newStrategy': 0
 };
 
 const transactions = {
   'KASUSDT': 0,
+  'BTCUSDC': 0,
   'KASUSDT-newStrategy': 0,
   'KASUSDT-up': 0
 };
