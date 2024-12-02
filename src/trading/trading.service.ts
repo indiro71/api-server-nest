@@ -241,7 +241,9 @@ export class TradingService {
             this.dailyTransactions[`${currency.symbol}-newStrategy`] = this.dailyTransactions[`${currency.symbol}-newStrategy`] + 1;
 
             this.autoBuyCount = 30;
-            await this.telegramService.sendMessage(alertMessage);
+            if (this.sendSellStat) {
+              await this.telegramService.sendMessage(alertMessage);
+            }
           }
         }
       }
