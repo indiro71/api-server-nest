@@ -8,6 +8,7 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 /* tg commands---------------
 
 stat - All statistics
+togglestat - Toggle Send Sell Stat
 buyandsell - Buy and sell order
 sellandbuy - Sell and buy order - (5000)
 sellorder - Sell  order - (5000)
@@ -158,6 +159,7 @@ export class TradingService {
   private isMonitoring: boolean;
   private isActiveTrade: boolean;
   private buyOnRise: boolean;
+  private sendSellStat: boolean;
   private checkCount: number;
   private bookCount: number;
   private autoBuyCount: number;
@@ -174,6 +176,7 @@ export class TradingService {
     this.isTraded = false;
     this.isMonitoring = false;
     this.buyOnRise = false;
+    this.sendSellStat = true;
     this.isActiveTrade = true;
     this.checkCount = 0;
     this.bookCount = 0;
@@ -389,6 +392,9 @@ export class TradingService {
     });
     await this.telegramService.bot.onText(/\/togglerise/, async () => {
       await this.toggleRise();
+    });
+    await this.telegramService.bot.onText(/\/togglestat/, async () => {
+      await this.toggleSendSellStat();
     });
     await this.telegramService.bot.onText(/\/disabletrade/, async () => {
       await this.disableTrade();
@@ -649,6 +655,11 @@ export class TradingService {
   async toggleRise() {
     this.buyOnRise = !this.buyOnRise;
     await this.telegramService.sendMessage(`Покупка на возрастании ${this.buyOnRise ? 'включена' : 'отключена'}`);
+  }
+
+  async toggleSendSellStat() {
+    this.sendSellStat = !this.sendSellStat;
+    await this.telegramService.sendMessage(`Уведомления о продаже ${this.sendSellStat ? 'включены' : 'отключены'}`);
   }
 
   async disableTrade() {
