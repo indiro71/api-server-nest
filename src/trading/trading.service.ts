@@ -10,13 +10,13 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 stat - All statistics
 togglestat - Toggle Send Sell Stat
 buyandsell - Buy and sell order
-sellandbuy - Sell and buy order - (5000)
-sellorder - Sell  order - (5000)
-buyorder - Buy order - (5000)
 enabletrade - Enable Trade
 disabletrade - Disable Trade
 tradestatus - Trade Status
 
+sellandbuy - Sell and buy order - (5000)
+sellorder - Sell  order - (5000)
+buyorder - Buy order - (5000)
 dailyprofit - Show daily profit
 togglerise - Toggle Buy on rise
 moneystat - Money statistics
@@ -29,8 +29,7 @@ setstrategy - Set strategy new/old
 
 const initialDiffStats = {
   'KASUSDT': [],
-  'BTCUSDC': [],
-  'MXUSDC': [],
+  'MXUSDC': []
 };
 for (let i = 0; i<20; i++) {
   const stat = {
@@ -52,8 +51,7 @@ for (let i = 0; i<20; i++) {
 
 const curSteps = {
   'KASUSDT': 0.002,
-  'MXUSDC': 0.1,
-  'BTCUSDC': 0.1,
+  'MXUSDC': 0.1
 }
 
 const inStats = {
@@ -146,13 +144,11 @@ const stepPrices = {
 
 const profit = {
   'KASUSDT': 0,
-  'BTCUSDC': 0,
   'KASUSDT-newStrategy': 0
 };
 
 const transactions = {
   'KASUSDT': 0,
-  'BTCUSDC': 0,
   'KASUSDT-newStrategy': 0,
   'KASUSDT-up': 0
 };
@@ -818,6 +814,12 @@ export class TradingService {
     }
   }
 
+  async waiting(time = 300) {
+    return new Promise<void>(resolve => {
+      setTimeout(() => resolve(), time);
+    })
+  }
+
   async monitoring() {
     if (!this.isActiveTrade) return;
 
@@ -836,13 +838,14 @@ export class TradingService {
         }
 
         for (const currency of currencies) {
-          const deviation = 0.00001;
+          const deviation = 0.00002;
           let currencyCurrentPrice;
           if (currency.symbol in prices) {
             currencyCurrentPrice = prices[currency.symbol];
           } else {
             currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
             prices[currency.symbol] = currencyCurrentPrice;
+            await this.waiting();
           }
           // currency?.sendStat && this.statistics(currencyCurrentPrice, currency.symbol);
           const difference = currencyCurrentPrice - currency.lastValue;
@@ -894,6 +897,8 @@ export class TradingService {
                       if (newOrderData) {
                         alertMessage = `${alertMessage} \nКуплено ${buyData?.origQty} монет по цене ${buyData?.price}$ за ${buyData?.origQty * buyData?.price}$`;
                       }
+
+                      await this.waiting();
 
                       try {
                         const sellPrice = parseFloat((+currencyCurrentPrice + currency.soldStep).toFixed(6));
