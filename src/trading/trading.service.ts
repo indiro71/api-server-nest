@@ -814,7 +814,7 @@ export class TradingService {
     }
   }
 
-  async waiting(time = 300) {
+  async waiting(time = 500) {
     return new Promise<void>(resolve => {
       setTimeout(() => resolve(), time);
     })
@@ -845,7 +845,6 @@ export class TradingService {
           } else {
             currencyCurrentPrice = await this.mxcService.getCurrencyPrice(currency.symbol);
             prices[currency.symbol] = currencyCurrentPrice;
-            await this.waiting();
           }
           // currency?.sendStat && this.statistics(currencyCurrentPrice, currency.symbol);
           const difference = currencyCurrentPrice - currency.lastValue;
