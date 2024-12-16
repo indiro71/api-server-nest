@@ -9,6 +9,7 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 
 stat - All statistics
 togglestat - Toggle Send Sell Stat
+togglerise - Toggle Buy on rise
 buyandsell - Buy and sell order
 enabletrade - Enable Trade
 disabletrade - Disable Trade
@@ -568,7 +569,9 @@ export class TradingService {
         this.isTraded = false;
       }
     }
-    await this.telegramService.sendMessage(alertMessage);
+    if (this.sendSellStat) {
+      await this.telegramService.sendMessage(alertMessage);
+    }
   }
 
   async buyOrder(quantity = 5000) {
