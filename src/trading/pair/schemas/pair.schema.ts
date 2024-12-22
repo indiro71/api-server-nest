@@ -38,6 +38,12 @@ export class Pair {
   })
   marginLimit: number;
 
+  @ApiProperty({ example: 20, description: 'Margin Step' })
+  @Prop({
+    default: 20,
+  })
+  marginStep: number;
+
   @ApiProperty({ example: 10, description: 'Margin Difference' })
   @Prop({
     default: 10,
