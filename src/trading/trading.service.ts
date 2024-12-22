@@ -839,7 +839,7 @@ export class TradingService {
       if (pairs?.length > 0 && !this.isTraded) {
         const positions = await this.mxcService.getPositions();
 
-        if (positions.success) {
+        if (positions?.success) {
           for (const pair of pairs) {
             if (!pair.isActive) continue;
             let message = '';
@@ -863,103 +863,107 @@ export class TradingService {
             const longPercent = getPercent(pairCurrentPrice, pair.longPrice) || 0;
             const shortPercent = getPercent(pairCurrentPrice, pair.shortPrice, true) || 0;
 
-            //check long
+            if (longPosition) {
+              //check long
 
-            // текущая цена выше цены лонга, позиция в плюсе, проверка надо ли продать
-            if (longPercent > 0) {
-              // текущий процент выше процента, при котором фиксируем лонг
-              if (longPercent > pair.sellPercent) {
-                //уведомление о продаже и открытии нового лонга
-                if (!pair.sellLongNotification) {
-                  message = message + `💰 [${pair.name}] [LONG] [SELL] \n Рост позиции ${pair.name} достиг ${longPercent}%. \n Необходимо закрыть лонг и открыть новый.`;
-                  needSendNotification = true;
-                  pair.sellLongNotification = true;
-                }
-              }
-            }
-
-            // текущая цена ниже цены лонга, позиция в плюсе, проверка надо ли докупить
-            if (longPercent < 0) {
-              const longAbsolutePercent = Math.abs(longPercent);
-              const longLeveragePercent = Math.round(longAbsolutePercent * pair.leverage);
-
-              //текущий процент больше процента, при котором можно докупить лонг
-              if (longAbsolutePercent > pair.buyMorePercent) {
-                // маржа лонга меньше маржи шорта и маржа лонга меньше лимита маржи
-                if (pair.longMargin + pair.marginDifference < pair.shortMargin && pair.longMargin < marginLimit) {
-                  //уведомление о докупки позиции лонга
-                  if (!pair.buyMoreLongNotification) {
-                    message = message + `⬇️ [${pair.name}] [LONG] [BUY] \n Просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Необходимо откупить позицию лонга.`;
+              // текущая цена выше цены лонга, позиция в плюсе, проверка надо ли продать
+              if (longPercent > 0) {
+                // текущий процент выше процента, при котором фиксируем лонг
+                if (longPercent > pair.sellPercent) {
+                  //уведомление о продаже и открытии нового лонга
+                  if (!pair.sellLongNotification) {
+                    message = message + `💰 [${pair.name}] [LONG] [SELL] \n Рост позиции ${pair.name} достиг ${longPercent}%. \n Необходимо закрыть лонг и открыть новый.`;
                     needSendNotification = true;
-                    pair.buyMoreLongNotification = true;
+                    pair.sellLongNotification = true;
                   }
                 }
               }
 
-              //текущий процент больше процента, при котором возможно скорое закрытие лонга
-              if (longAbsolutePercent > pair.buyPercent) {
-                // маржа лонга меньше лимита маржи
-                if (pair.longMargin < marginLimit) {
-                  message = message + `🚨⬇️ [${pair.name}] [LONG] [BUY] \n Сильная просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Необходимо докупить позицию лонга.`;
-                } else {
-                  message = message + `🚨🚨🚨 [${pair.name}] [LONG] \n Критическая просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Лонг в скором времени будет ликвидирован.`;
+              // текущая цена ниже цены лонга, позиция в плюсе, проверка надо ли докупить
+              if (longPercent < 0) {
+                const longAbsolutePercent = Math.abs(longPercent);
+                const longLeveragePercent = Math.round(longAbsolutePercent * pair.leverage);
+
+                //текущий процент больше процента, при котором можно докупить лонг
+                if (longAbsolutePercent > pair.buyMorePercent) {
+                  // маржа лонга меньше маржи шорта и маржа лонга меньше лимита маржи
+                  if (pair.longMargin + pair.marginDifference < pair.shortMargin && pair.longMargin < marginLimit) {
+                    //уведомление о докупки позиции лонга
+                    if (!pair.buyMoreLongNotification) {
+                      message = message + `⬇️ [${pair.name}] [LONG] [BUY] \n Просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Необходимо откупить позицию лонга.`;
+                      needSendNotification = true;
+                      pair.buyMoreLongNotification = true;
+                    }
+                  }
                 }
 
-                if (!pair.buyLongNotification) {
-                  needSendNotification = true;
-                  pair.buyLongNotification = true;
-                }
-              }
-            }
+                //текущий процент больше процента, при котором возможно скорое закрытие лонга
+                if (longAbsolutePercent > pair.buyPercent) {
+                  // маржа лонга меньше лимита маржи
+                  if (pair.longMargin < marginLimit) {
+                    message = message + `🚨⬇️ [${pair.name}] [LONG] [BUY] \n Сильная просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Необходимо докупить позицию лонга.`;
+                  } else {
+                    message = message + `🚨🚨🚨 [${pair.name}] [LONG] \n Критическая просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Лонг в скором времени будет ликвидирован.`;
+                  }
 
-
-            //check short
-
-            // текущая цена выше цены шорта, позиция в плюсе, проверка надо ли продать
-            if (shortPercent > 0) {
-              // текущий процент выше процента, при котором фиксируем шорт
-              if (shortPercent > pair.sellPercent) {
-                //уведомление о продаже и открытии нового шорта
-                if (!pair.sellShortNotification) {
-                  message = message + `💰 [${pair.name}] [SHORT] [SELL] \n Рост позиции ${pair.name} достиг ${shortPercent}%. \n Необходимо закрыть шорт и открыть новый.`;
-                  needSendNotification = true;
-                  pair.sellShortNotification = true;
-                }
-              }
-            }
-
-            // текущая цена ниже цены шорта, позиция в плюсе, проверка надо ли докупить
-            if (shortPercent < 0) {
-              const shortAbsolutePercent = Math.abs(shortPercent);
-              const shortLeveragePercent = Math.round(shortAbsolutePercent * pair.leverage);
-              //текущий процент больше процента, при котором можно докупить шорт
-              if (shortAbsolutePercent > pair.buyMorePercent) {
-                // маржа шорта меньше маржи лонга и маржа шорта меньше лимита маржи
-                if (pair.shortMargin + pair.marginDifference < pair.longMargin && pair.shortMargin < marginLimit) {
-                  //уведомление о докупки позиции шорта
-                  if (!pair.buyMoreShortNotification) {
-                    message = message + `⬇️ [${pair.name}] [SHORT] [BUY] \n Просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Необходимо откупить позицию шорта.`;
+                  if (!pair.buyLongNotification) {
                     needSendNotification = true;
-                    pair.buyMoreShortNotification = true;
+                    pair.buyLongNotification = true;
+                  }
+                }
+              }
+            }
+
+            if (shortPosition) {
+              //check short
+
+              // текущая цена выше цены шорта, позиция в плюсе, проверка надо ли продать
+              if (shortPercent > 0) {
+                // текущий процент выше процента, при котором фиксируем шорт
+                if (shortPercent > pair.sellPercent) {
+                  //уведомление о продаже и открытии нового шорта
+                  if (!pair.sellShortNotification) {
+                    message = message + `💰 [${pair.name}] [SHORT] [SELL] \n Рост позиции ${pair.name} достиг ${shortPercent}%. \n Необходимо закрыть шорт и открыть новый.`;
+                    needSendNotification = true;
+                    pair.sellShortNotification = true;
                   }
                 }
               }
 
-              //текущий процент больше процента, при котором возможно скорое закрытие шорта
-              if (shortAbsolutePercent > pair.buyPercent) {
-                // маржа шорта меньше лимита маржи
-                if (pair.shortMargin < marginLimit) {
-                  message = message + `🚨⬇️ [${pair.name}] [SHORT] [BUY] \n Сильная просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Необходимо докупить позицию шорта.`;
-                } else {
-                  message = message + `🚨🚨🚨 [${pair.name}] [SHORT] \n Критическая просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Шорт в скором времени будет ликвидирован.`;
+              // текущая цена ниже цены шорта, позиция в плюсе, проверка надо ли докупить
+              if (shortPercent < 0) {
+                const shortAbsolutePercent = Math.abs(shortPercent);
+                const shortLeveragePercent = Math.round(shortAbsolutePercent * pair.leverage);
+                //текущий процент больше процента, при котором можно докупить шорт
+                if (shortAbsolutePercent > pair.buyMorePercent) {
+                  // маржа шорта меньше маржи лонга и маржа шорта меньше лимита маржи
+                  if (pair.shortMargin + pair.marginDifference < pair.longMargin && pair.shortMargin < marginLimit) {
+                    //уведомление о докупки позиции шорта
+                    if (!pair.buyMoreShortNotification) {
+                      message = message + `⬇️ [${pair.name}] [SHORT] [BUY] \n Просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Необходимо откупить позицию шорта.`;
+                      needSendNotification = true;
+                      pair.buyMoreShortNotification = true;
+                    }
+                  }
                 }
 
-                if (!pair.buyShortNotification) {
-                  needSendNotification = true;
-                  pair.buyShortNotification = true;
+                //текущий процент больше процента, при котором возможно скорое закрытие шорта
+                if (shortAbsolutePercent > pair.buyPercent) {
+                  // маржа шорта меньше лимита маржи
+                  if (pair.shortMargin < marginLimit) {
+                    message = message + `🚨⬇️ [${pair.name}] [SHORT] [BUY] \n Сильная просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Необходимо докупить позицию шорта.`;
+                  } else {
+                    message = message + `🚨🚨🚨 [${pair.name}] [SHORT] \n Критическая просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Шорт в скором времени будет ликвидирован.`;
+                  }
+
+                  if (!pair.buyShortNotification) {
+                    needSendNotification = true;
+                    pair.buyShortNotification = true;
+                  }
                 }
               }
             }
+
             pair.currentPrice = pairCurrentPrice;
 
             if (needClearNotification || this.clearNotificationsCount === 50) {
