@@ -111,6 +111,15 @@ export class CronService {
     }
   }
 
+  @Cron('*/5 * * * * *')
+  async pairsCronMonitoring() {
+    try {
+      await this.tradingService.monitorPairs();
+    } catch (e) {
+      this.logger.error('PairsCron error', e.message);
+    }
+  }
+
   // @Cron('*/5 * * * * *')
   async tradingCronMonitoringBook() {
     try {
