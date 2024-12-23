@@ -216,13 +216,17 @@ export class TradingService {
               } finally {
                 this.isTraded = false;
               }
-              await this.telegramService.sendMessage(alertMessage);
+              if (this.isWorkingTime()) {
+                await this.telegramService.sendMessage(alertMessage);
+              }
             }
           }
         }
       } catch (err) {
         console.error(err?.message);
-        await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+        if (this.isWorkingTime()) {
+          await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+        }
       }
     }
   }
@@ -247,14 +251,18 @@ export class TradingService {
 
             this.autoBuyCount = 30;
             if (this.sendSellStat) {
-              await this.telegramService.sendMessage(alertMessage);
+              if (this.isWorkingTime()) {
+                await this.telegramService.sendMessage(alertMessage);
+              }
             }
           }
         }
       }
     } catch (err) {
       console.error(err?.message);
-      await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+      if (this.isWorkingTime()) {
+        await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+      }
     }
   }
 
@@ -303,7 +311,9 @@ export class TradingService {
               } finally {
                 this.isTraded = false;
               }
-              await this.telegramService.sendMessage(alertMessage);
+              if (this.isWorkingTime()) {
+                await this.telegramService.sendMessage(alertMessage);
+              }
             }
           } else {
             const minimumFindPrice = currencyCurrentPrice - currency.step; //  * 2
@@ -345,7 +355,9 @@ export class TradingService {
         }
       } catch (err) {
         console.error(err?.message);
-        await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+        if (this.isWorkingTime()) {
+          await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+        }
       }
     }
   }
@@ -874,13 +886,15 @@ export class TradingService {
             if (longPosition) {
               //check long
 
+              const longAbsolutePercent = Math.abs(longPercent);
+              const longLeveragePercent = Math.round(longAbsolutePercent * pair.leverage);
               // текущая цена выше цены лонга, позиция в плюсе, проверка надо ли продать
               if (longPercent > 0) {
                 // текущий процент выше процента, при котором фиксируем лонг
                 if (longPercent > pair.sellPercent) {
                   //уведомление о продаже и открытии нового лонга
                   if (!pair.sellLongNotification) {
-                    message = message + `💰 [${pair.name}] [LONG] [SELL] \n Рост лонга ${pair.name} достиг ${longPercent}%. \n Необходимо закрыть лонг и открыть новый.`;
+                    message = message + `💰 [${pair.name}] [LONG] [SELL] \n Рост лонга ${pair.name} достиг ${longLeveragePercent}%. \n Необходимо закрыть лонг и открыть новый.`;
                     needSendNotification = true;
                     pair.sellLongNotification = true;
                   }
@@ -889,9 +903,6 @@ export class TradingService {
 
               // текущая цена ниже цены лонга, позиция в плюсе, проверка надо ли докупить
               if (longPercent < 0) {
-                const longAbsolutePercent = Math.abs(longPercent);
-                const longLeveragePercent = Math.round(longAbsolutePercent * pair.leverage);
-
                 //текущий процент больше процента, при котором можно докупить лонг
                 if (longAbsolutePercent > pair.buyMorePercent) {
                   // маржа лонга меньше маржи шорта и маржа лонга меньше лимита маржи
@@ -930,13 +941,15 @@ export class TradingService {
             if (shortPosition) {
               //check short
 
+              const shortAbsolutePercent = Math.abs(shortPercent);
+              const shortLeveragePercent = Math.round(shortAbsolutePercent * pair.leverage);
               // текущая цена выше цены шорта, позиция в плюсе, проверка надо ли продать
               if (shortPercent > 0) {
                 // текущий процент выше процента, при котором фиксируем шорт
                 if (shortPercent > pair.sellPercent) {
                   //уведомление о продаже и открытии нового шорта
                   if (!pair.sellShortNotification) {
-                    message = message + `💰 [${pair.name}] [SHORT] [SELL] \n Рост шорта ${pair.name} достиг ${shortPercent}%. \n Необходимо закрыть шорт и открыть новый.`;
+                    message = message + `💰 [${pair.name}] [SHORT] [SELL] \n Рост шорта ${pair.name} достиг ${shortLeveragePercent}%. \n Необходимо закрыть шорт и открыть новый.`;
                     needSendNotification = true;
                     pair.sellShortNotification = true;
                   }
@@ -945,8 +958,6 @@ export class TradingService {
 
               // текущая цена ниже цены шорта, позиция в плюсе, проверка надо ли докупить
               if (shortPercent < 0) {
-                const shortAbsolutePercent = Math.abs(shortPercent);
-                const shortLeveragePercent = Math.round(shortAbsolutePercent * pair.leverage);
                 //текущий процент больше процента, при котором можно докупить шорт
                 if (shortAbsolutePercent > pair.buyMorePercent) {
                   // маржа шорта меньше маржи лонга и маржа шорта меньше лимита маржи
@@ -1016,7 +1027,9 @@ export class TradingService {
       }
     } catch (e) {
       console.error(e?.message);
-      await this.telegramService.sendMessage(`Ошибка: ${e.message}`);
+      if (this.isWorkingTime()) {
+        await this.telegramService.sendMessage(`Ошибка: ${e.message}`);
+      }
     }
   }
 
@@ -1118,7 +1131,9 @@ export class TradingService {
                         }
                       } catch (e) {
                         alertMessage = `${alertMessage} \nВыставить не получилось по причине: ${e.message}`;
-                        await this.telegramService.sendMessage(alertMessage);
+                        if (this.isWorkingTime()) {
+                          await this.telegramService.sendMessage(alertMessage);
+                        }
                       }
                     }
                   } catch (e) {
@@ -1129,7 +1144,9 @@ export class TradingService {
                   }
                 }
                 if (currency?.sendNotification) {
-                  await this.telegramService.sendMessage(alertMessage);
+                  if (this.isWorkingTime()) {
+                    await this.telegramService.sendMessage(alertMessage);
+                  }
                 }
               }
             }
@@ -1216,7 +1233,9 @@ export class TradingService {
               currency.lastValue = newLastValue;
               await this.currencyService.update(currency._id, currency);
               if (currency?.sendNotification) {
-                await this.telegramService.sendMessage(alertMessage);
+                if (this.isWorkingTime()) {
+                  await this.telegramService.sendMessage(alertMessage);
+                }
               }
             }
           }
@@ -1230,7 +1249,9 @@ export class TradingService {
         }
       } catch (err) {
         console.error(err?.message);
-        await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+        if (this.isWorkingTime()) {
+          await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+        }
       } finally {
         this.isMonitoring = false;
       }
