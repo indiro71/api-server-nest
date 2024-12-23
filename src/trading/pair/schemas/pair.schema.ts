@@ -68,6 +68,12 @@ export class Pair {
   })
   buyPercent: number;
 
+  @ApiProperty({ example: 6, description: 'Alarm percent' })
+  @Prop({
+    default: 9,
+  })
+  alarmPercent: number;
+
   @ApiProperty({ example: 2, description: 'Buy more percent' })
   @Prop({
     default: 2,
@@ -150,6 +156,12 @@ export class Pair {
   })
   buyLongNotification: boolean;
 
+  @ApiProperty({ example: false, description: 'Alarm Long Notification is sending' })
+  @Prop({
+    default: false,
+  })
+  alarmLongNotification: boolean;
+
   @ApiProperty({ example: false, description: 'Buy More Long Notification is sending' })
   @Prop({
     default: false,
@@ -167,6 +179,12 @@ export class Pair {
     default: false,
   })
   buyShortNotification: boolean;
+
+  @ApiProperty({ example: false, description: 'Alarm Short Notification is sending' })
+  @Prop({
+    default: false,
+  })
+  alarmShortNotification: boolean;
 
   @ApiProperty({ example: false, description: 'Buy More Short Notification is sending' })
   @Prop({
