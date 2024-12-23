@@ -827,6 +827,13 @@ export class TradingService {
     })
   }
 
+  isWorkingTime(): boolean {
+    const now = new Date();
+    const hours = now.getHours();
+
+    return !(hours >= 1 && hours < 9);
+  }
+
   async monitorPairs() {
     try {
       const pairs = await this.pairService.getAll();
@@ -844,6 +851,7 @@ export class TradingService {
             if (!pair.isActive) continue;
             let message = '';
             let needSendNotification = false;
+            let needAlarmNotification = false;
             let needClearNotification = false;
 
             const pairCurrentPrice = + await this.mxcService.getContractFairPrice(pair.contract);
@@ -872,7 +880,7 @@ export class TradingService {
                 if (longPercent > pair.sellPercent) {
                   //уведомление о продаже и открытии нового лонга
                   if (!pair.sellLongNotification) {
-                    message = message + `💰 [${pair.name}] [LONG] [SELL] \n Рост позиции ${pair.name} достиг ${longPercent}%. \n Необходимо закрыть лонг и открыть новый.`;
+                    message = message + `💰 [${pair.name}] [LONG] [SELL] \n Рост лонга ${pair.name} достиг ${longPercent}%. \n Необходимо закрыть лонг и открыть новый.`;
                     needSendNotification = true;
                     pair.sellLongNotification = true;
                   }
@@ -890,7 +898,7 @@ export class TradingService {
                   if (pair.longMargin + pair.marginDifference < pair.shortMargin && pair.longMargin < marginLimit) {
                     //уведомление о докупки позиции лонга
                     if (!pair.buyMoreLongNotification) {
-                      message = message + `⬇️ [${pair.name}] [LONG] [BUY] \n Просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Необходимо откупить позицию лонга.`;
+                      message = message + `⬇️ [${pair.name}] [LONG] [BUY] [${pair.marginStep}] \n Просадка лонга ${pair.name} на ${longLeveragePercent}%. \n Необходимо откупить позицию лонга.`;
                       needSendNotification = true;
                       pair.buyMoreLongNotification = true;
                     }
@@ -901,14 +909,19 @@ export class TradingService {
                 if (longAbsolutePercent > pair.buyPercent) {
                   // маржа лонга меньше лимита маржи
                   if (pair.longMargin < marginLimit) {
-                    message = message + `🚨⬇️ [${pair.name}] [LONG] [BUY] \n Сильная просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Необходимо докупить позицию лонга.`;
-                  } else {
-                    message = message + `🚨🚨🚨 [${pair.name}] [LONG] \n Критическая просадка позиции ${pair.name} на ${longLeveragePercent}%. \n Лонг в скором времени будет ликвидирован.`;
-                  }
-
-                  if (!pair.buyLongNotification) {
-                    needSendNotification = true;
-                    pair.buyLongNotification = true;
+                    if (!pair.buyLongNotification) {
+                      message = message + `🚨⬇️ [${pair.name}] [LONG] [BUY] [${pair.marginStep}] \n Сильная просадка лонга ${pair.name} на ${longLeveragePercent}%. \n Необходимо докупить позицию лонга.`;
+                      needSendNotification = true;
+                      pair.buyLongNotification = true;
+                    }
+                    // критическая просадка лонга
+                    if (longAbsolutePercent > pair.alarmPercent) {
+                      if (!pair.alarmLongNotification) {
+                        message = message + `🚨🚨🚨 [${pair.name}] [LONG] [BUY] [${pair.marginStep}] \n Критическая просадка лонга ${pair.name} на ${longLeveragePercent}%. \n Необходимо срочно докупить позицию лонга.`;
+                        needAlarmNotification = true;
+                        pair.alarmLongNotification = true;
+                      }
+                    }
                   }
                 }
               }
@@ -923,7 +936,7 @@ export class TradingService {
                 if (shortPercent > pair.sellPercent) {
                   //уведомление о продаже и открытии нового шорта
                   if (!pair.sellShortNotification) {
-                    message = message + `💰 [${pair.name}] [SHORT] [SELL] \n Рост позиции ${pair.name} достиг ${shortPercent}%. \n Необходимо закрыть шорт и открыть новый.`;
+                    message = message + `💰 [${pair.name}] [SHORT] [SELL] \n Рост шорта ${pair.name} достиг ${shortPercent}%. \n Необходимо закрыть шорт и открыть новый.`;
                     needSendNotification = true;
                     pair.sellShortNotification = true;
                   }
@@ -940,7 +953,7 @@ export class TradingService {
                   if (pair.shortMargin + pair.marginDifference < pair.longMargin && pair.shortMargin < marginLimit) {
                     //уведомление о докупки позиции шорта
                     if (!pair.buyMoreShortNotification) {
-                      message = message + `⬇️ [${pair.name}] [SHORT] [BUY] \n Просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Необходимо откупить позицию шорта.`;
+                      message = message + `⬇️ [${pair.name}] [SHORT] [BUY] [${pair.marginStep}] \n Просадка шорта ${pair.name} на ${shortLeveragePercent}%. \n Необходимо откупить позицию шорта.`;
                       needSendNotification = true;
                       pair.buyMoreShortNotification = true;
                     }
@@ -951,14 +964,19 @@ export class TradingService {
                 if (shortAbsolutePercent > pair.buyPercent) {
                   // маржа шорта меньше лимита маржи
                   if (pair.shortMargin < marginLimit) {
-                    message = message + `🚨⬇️ [${pair.name}] [SHORT] [BUY] \n Сильная просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Необходимо докупить позицию шорта.`;
-                  } else {
-                    message = message + `🚨🚨🚨 [${pair.name}] [SHORT] \n Критическая просадка позиции ${pair.name} на ${shortLeveragePercent}%. \n Шорт в скором времени будет ликвидирован.`;
-                  }
-
-                  if (!pair.buyShortNotification) {
-                    needSendNotification = true;
-                    pair.buyShortNotification = true;
+                    if (!pair.buyShortNotification) {
+                      message = message + `🚨⬇️ [${pair.name}] [SHORT] [BUY] [${pair.marginStep}] \n Сильная просадка шорта ${pair.name} на ${shortLeveragePercent}%. \n Необходимо докупить позицию шорта.`;
+                      needSendNotification = true;
+                      pair.buyShortNotification = true;
+                    }
+                    // критическая просадка шорта
+                    if (shortAbsolutePercent > pair.alarmPercent) {
+                      if (!pair.alarmShortNotification) {
+                        message = message + `🚨🚨🚨 [${pair.name}] [SHORT] [BUY] [${pair.marginStep}] \n Критическая просадка шорта ${pair.name} на ${shortLeveragePercent}%. \n Необходимо срочно докупить позицию шорта.`;
+                        needAlarmNotification = true;
+                        pair.alarmShortNotification = true;
+                      }
+                    }
                   }
                 }
               }
@@ -970,15 +988,21 @@ export class TradingService {
               pair.sellLongNotification = false;
               pair.buyMoreLongNotification = false;
               pair.buyLongNotification = false;
+              pair.alarmLongNotification = false;
 
               pair.sellShortNotification = false;
               pair.buyMoreShortNotification = false;
               pair.buyShortNotification = false;
+              pair.alarmShortNotification = false;
             }
 
             await this.pairService.update(pair._id, pair);
 
-            if (needSendNotification && message && pair.sendNotification) {
+            if (needAlarmNotification && message) {
+              await this.telegramService.sendMessage(message);
+            }
+
+            if (needSendNotification && message && pair.sendNotification && this.isWorkingTime()) {
               await this.telegramService.sendMessage(message);
             }
           }
