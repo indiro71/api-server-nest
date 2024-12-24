@@ -182,9 +182,9 @@ export class TradingService {
     this.isTraded = false;
     this.isMonitoring = false;
     this.buyOnRise = false;
-    this.sendSellStat = true;
+    this.sendSellStat = false;
     this.sendNightStat = false;
-    this.isActiveTrade = true;
+    this.isActiveTrade = false;
     this.checkCount = 0;
     this.bookCount = 0;
     this.autoBuyCount = 0;
@@ -902,7 +902,7 @@ export class TradingService {
               // текущая цена выше цены лонга, позиция в плюсе, проверка надо ли продать
               if (longPercent > 0) {
                 // текущий процент выше процента, при котором фиксируем лонг
-                if (longPercent > pair.sellPercent) {
+                if ((longPercent > pair.sellPercent) || (longPercent > 1 && pair.longMargin < pair.marginStep)) {
                   //уведомление о продаже и открытии нового лонга
                   if (!pair.sellLongNotification) {
                     message = message + `💰 [${pair.name}] [LONG] [SELL] \n Рост лонга ${pair.name} достиг ${longLeveragePercent}%. \n Необходимо закрыть лонг и открыть новый.`;
@@ -959,7 +959,7 @@ export class TradingService {
               // текущая цена выше цены шорта, позиция в плюсе, проверка надо ли продать
               if (shortPercent > 0) {
                 // текущий процент выше процента, при котором фиксируем шорт
-                if (shortPercent > pair.sellPercent) {
+                if ((shortPercent > pair.sellPercent) || (shortPercent > 1 && pair.shortMargin < pair.marginStep)) {
                   //уведомление о продаже и открытии нового шорта
                   if (!pair.sellShortNotification) {
                     message = message + `💰 [${pair.name}] [SHORT] [SELL] \n Рост шорта ${pair.name} достиг ${shortLeveragePercent}%. \n Необходимо закрыть шорт и открыть новый.`;
