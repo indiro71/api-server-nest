@@ -225,7 +225,7 @@ export class TradingService {
       } catch (err) {
         console.error(err?.message);
         if (this.isWorkingTime()) {
-          await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+          await this.telegramService.sendMessage(`Ошибка checkMissedBuyOrders: ${err.message}`);
         }
       }
     }
@@ -261,7 +261,7 @@ export class TradingService {
     } catch (err) {
       console.error(err?.message);
       if (this.isWorkingTime()) {
-        await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+        await this.telegramService.sendMessage(`Ошибка checkSellingOrders: ${err.message}`);
       }
     }
   }
@@ -356,7 +356,7 @@ export class TradingService {
       } catch (err) {
         console.error(err?.message);
         if (this.isWorkingTime()) {
-          await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+          await this.telegramService.sendMessage(`Ошибка checkMissedSellOrders: ${err.message}`);
         }
       }
     }
@@ -829,7 +829,7 @@ export class TradingService {
       }
     } catch (err) {
       console.error(err?.message);
-      await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+      await this.telegramService.sendMessage(`Ошибка monitoringBook: ${err.message}`);
     }
   }
 
@@ -1028,7 +1028,7 @@ export class TradingService {
     } catch (e) {
       console.error(e?.message);
       if (this.isWorkingTime()) {
-        await this.telegramService.sendMessage(`Ошибка: ${e.message}`);
+        await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
       }
     }
   }
@@ -1250,7 +1250,7 @@ export class TradingService {
       } catch (err) {
         console.error(err?.message);
         if (this.isWorkingTime()) {
-          await this.telegramService.sendMessage(`Ошибка: ${err.message}`);
+          await this.telegramService.sendMessage(`Ошибка monitoring: ${err.message}`);
         }
       } finally {
         this.isMonitoring = false;
