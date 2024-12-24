@@ -903,8 +903,9 @@ export class TradingService {
 
               // текущая цена ниже цены лонга, позиция в плюсе, проверка надо ли докупить
               if (longPercent < 0) {
+                const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * 0.5;
                 //текущий процент больше процента, при котором можно докупить лонг
-                if (longAbsolutePercent > pair.buyMorePercent) {
+                if (longAbsolutePercent > pair.buyMorePercent + correctionBuyLongPercent) {
                   // маржа лонга меньше маржи шорта и маржа лонга меньше лимита маржи
                   if (pair.longMargin + pair.marginDifference < pair.shortMargin && pair.longMargin < marginLimit) {
                     //уведомление о докупки позиции лонга
@@ -958,8 +959,9 @@ export class TradingService {
 
               // текущая цена ниже цены шорта, позиция в плюсе, проверка надо ли докупить
               if (shortPercent < 0) {
+                const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * 0.5;
                 //текущий процент больше процента, при котором можно докупить шорт
-                if (shortAbsolutePercent > pair.buyMorePercent) {
+                if (shortAbsolutePercent > pair.buyMorePercent + correctionBuyShortPercent) {
                   // маржа шорта меньше маржи лонга и маржа шорта меньше лимита маржи
                   if (pair.shortMargin + pair.marginDifference < pair.longMargin && pair.shortMargin < marginLimit) {
                     //уведомление о докупки позиции шорта
@@ -1011,10 +1013,12 @@ export class TradingService {
 
             if (needAlarmNotification && message) {
               await this.telegramService.sendMessage(message);
+              needAlarmNotification = false;
             }
 
             if (needSendNotification && message && pair.sendNotification && this.isWorkingTime()) {
               await this.telegramService.sendMessage(message);
+              needSendNotification = false;
             }
           }
         }
