@@ -11,6 +11,7 @@ import { PositionType } from '../services/mxc/mxc.interfaces';
 
 stat - All statistics
 togglestat - Toggle Send Sell Stat
+togglenightstat - Toggle Send Night Stat
 togglerise - Toggle Buy on rise
 buyandsell - Buy and sell order
 enabletrade - Enable Trade
@@ -163,6 +164,7 @@ export class TradingService {
   private isActiveTrade: boolean;
   private buyOnRise: boolean;
   private sendSellStat: boolean;
+  private sendNightStat: boolean;
   private checkCount: number;
   private bookCount: number;
   private autoBuyCount: number;
@@ -181,6 +183,7 @@ export class TradingService {
     this.isMonitoring = false;
     this.buyOnRise = false;
     this.sendSellStat = true;
+    this.sendNightStat = false;
     this.isActiveTrade = true;
     this.checkCount = 0;
     this.bookCount = 0;
@@ -414,6 +417,9 @@ export class TradingService {
     });
     await this.telegramService.bot.onText(/\/togglestat/, async () => {
       await this.toggleSendSellStat();
+    });
+    await this.telegramService.bot.onText(/\/togglenightstat/, async () => {
+      await this.toggleSendNightStat();
     });
     await this.telegramService.bot.onText(/\/disabletrade/, async () => {
       await this.disableTrade();
@@ -683,6 +689,11 @@ export class TradingService {
     await this.telegramService.sendMessage(`Уведомления о продаже ${this.sendSellStat ? 'включены' : 'отключены'}`);
   }
 
+  async toggleSendNightStat() {
+    this.sendNightStat = !this.sendNightStat;
+    await this.telegramService.sendMessage(`Уведомления в ночное время ${this.sendNightStat ? 'включены' : 'отключены'}`);
+  }
+
   async disableTrade() {
     this.isActiveTrade = false;
     await this.telegramService.sendMessage('Бот остановлен');
@@ -903,9 +914,9 @@ export class TradingService {
 
               // текущая цена ниже цены лонга, позиция в плюсе, проверка надо ли докупить
               if (longPercent < 0) {
-                const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * 0.5;
+                const correctionBuyMoreLongPercent = Math.floor(pair.longMargin / pair.marginStep) * 0.5;
                 //текущий процент больше процента, при котором можно докупить лонг
-                if (longAbsolutePercent > pair.buyMorePercent + correctionBuyLongPercent) {
+                if (longAbsolutePercent > pair.buyMorePercent + correctionBuyMoreLongPercent) {
                   // маржа лонга меньше маржи шорта и маржа лонга меньше лимита маржи
                   if (pair.longMargin + pair.marginDifference < pair.shortMargin && pair.longMargin < marginLimit) {
                     //уведомление о докупки позиции лонга
@@ -918,7 +929,8 @@ export class TradingService {
                 }
 
                 //текущий процент больше процента, при котором возможно скорое закрытие лонга
-                if (longAbsolutePercent > pair.buyPercent) {
+                const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * 0.25;
+                if (longAbsolutePercent > pair.buyPercent + correctionBuyLongPercent) {
                   // маржа лонга меньше лимита маржи
                   if (pair.longMargin < marginLimit) {
                     if (!pair.buyLongNotification) {
@@ -959,9 +971,9 @@ export class TradingService {
 
               // текущая цена ниже цены шорта, позиция в плюсе, проверка надо ли докупить
               if (shortPercent < 0) {
-                const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * 0.5;
+                const correctionBuyMoreShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * 0.5;
                 //текущий процент больше процента, при котором можно докупить шорт
-                if (shortAbsolutePercent > pair.buyMorePercent + correctionBuyShortPercent) {
+                if (shortAbsolutePercent > pair.buyMorePercent + correctionBuyMoreShortPercent) {
                   // маржа шорта меньше маржи лонга и маржа шорта меньше лимита маржи
                   if (pair.shortMargin + pair.marginDifference < pair.longMargin && pair.shortMargin < marginLimit) {
                     //уведомление о докупки позиции шорта
@@ -974,7 +986,8 @@ export class TradingService {
                 }
 
                 //текущий процент больше процента, при котором возможно скорое закрытие шорта
-                if (shortAbsolutePercent > pair.buyPercent) {
+                const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * 0.25;
+                if (shortAbsolutePercent > pair.buyPercent + correctionBuyShortPercent) {
                   // маржа шорта меньше лимита маржи
                   if (pair.shortMargin < marginLimit) {
                     if (!pair.buyShortNotification) {
@@ -1016,7 +1029,7 @@ export class TradingService {
               needAlarmNotification = false;
             }
 
-            if (needSendNotification && message && pair.sendNotification && this.isWorkingTime()) {
+            if (needSendNotification && message && pair.sendNotification && (this.isWorkingTime() || this.sendNightStat)) {
               await this.telegramService.sendMessage(message);
               needSendNotification = false;
             }
