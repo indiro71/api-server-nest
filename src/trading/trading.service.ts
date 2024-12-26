@@ -876,6 +876,8 @@ export class TradingService {
             let needSendNotification = false;
             let needAlarmNotification = false;
             let needClearNotification = false;
+            const buyMoreCoefficient = 1;
+            const buyCoefficient = 0.25;
 
             const pairCurrentPrice = + await this.mxcService.getContractFairPrice(pair.contract);
             const longPosition = positions.data.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
@@ -914,7 +916,7 @@ export class TradingService {
 
               // текущая цена ниже цены лонга, позиция в плюсе, проверка надо ли докупить
               if (longPercent < 0) {
-                const correctionBuyMoreLongPercent = Math.floor(pair.longMargin / pair.marginStep) * 0.5;
+                const correctionBuyMoreLongPercent = Math.floor(pair.longMargin / pair.marginStep) * buyMoreCoefficient;
                 //текущий процент больше процента, при котором можно докупить лонг
                 if (longAbsolutePercent > pair.buyMorePercent + correctionBuyMoreLongPercent) {
                   // маржа лонга меньше маржи шорта и маржа лонга меньше лимита маржи
@@ -929,7 +931,7 @@ export class TradingService {
                 }
 
                 //текущий процент больше процента, при котором возможно скорое закрытие лонга
-                const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * 0.25;
+                const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * buyCoefficient;
                 if (longAbsolutePercent > pair.buyPercent + correctionBuyLongPercent) {
                   // маржа лонга меньше лимита маржи
                   if (pair.longMargin < marginLimit) {
@@ -971,7 +973,7 @@ export class TradingService {
 
               // текущая цена ниже цены шорта, позиция в плюсе, проверка надо ли докупить
               if (shortPercent < 0) {
-                const correctionBuyMoreShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * 0.5;
+                const correctionBuyMoreShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * buyMoreCoefficient;
                 //текущий процент больше процента, при котором можно докупить шорт
                 if (shortAbsolutePercent > pair.buyMorePercent + correctionBuyMoreShortPercent) {
                   // маржа шорта меньше маржи лонга и маржа шорта меньше лимита маржи
@@ -986,7 +988,7 @@ export class TradingService {
                 }
 
                 //текущий процент больше процента, при котором возможно скорое закрытие шорта
-                const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * 0.25;
+                const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * buyCoefficient;
                 if (shortAbsolutePercent > pair.buyPercent + correctionBuyShortPercent) {
                   // маржа шорта меньше лимита маржи
                   if (pair.shortMargin < marginLimit) {
