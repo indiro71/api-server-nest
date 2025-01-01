@@ -1,6 +1,6 @@
 import { Injectable, HttpService } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { IPositionResponse, OpenType, SideType } from './mxc.interfaces';
+import { IOrdersResponse, IPositionResponse, OpenType, SideType } from './mxc.interfaces';
 
 @Injectable()
 export class MxcService {
@@ -195,6 +195,32 @@ export class MxcService {
 
   async getPositions(symbol?: string): Promise<IPositionResponse> {
     const apiUrl = 'https://contract.mexc.com/api/v1/private/position/open_positions';
+    const timestamp = Date.now().toString();
+
+    const params: Record<string, string> = {};
+
+    if (symbol) params.symbol = symbol;
+
+    const signatureString = this.generateSignatureString(timestamp, params);
+    const signature = this.generateSignature(signatureString);
+
+    const headers = {
+      'ApiKey': process.env.MEXC_API_KEY,
+      'Request-Time': timestamp,
+      'Signature': signature,
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      const response = await this.httpService.get(apiUrl, { headers, params }).toPromise();
+      return response.data;
+    } catch (e) {
+      console.error('error',e.response);
+    }
+  }
+
+  async getOrders(symbol?: string): Promise<IOrdersResponse> {
+    const apiUrl = 'https://contract.mexc.com/api/v1/private/order/list/open_orders';
     const timestamp = Date.now().toString();
 
     const params: Record<string, string> = {};

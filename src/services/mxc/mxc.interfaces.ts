@@ -32,7 +32,19 @@ export interface IOpenedPosition {
   updateTime: Date;
 }
 
+export interface IOpenedOrder {
+  id: string;
+  symbol: string;
+  side: SideType;
+  price: number;
+}
+
 export interface IPositionResponse {
   success: boolean;
   data: IOpenedPosition[];
+}
+
+export interface IOrdersResponse {
+  success: boolean;
+  data: IOpenedOrder[];
 }
