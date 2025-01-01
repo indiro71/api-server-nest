@@ -1001,8 +1001,10 @@ export class TradingService {
                 }
                 pair.criticalBuyLongPrice = longCriticalBuyPrice;
               } else {
-                pair.criticalBuyLongPriceWarning = false;
-                pair.criticalBuyLongPrice = 0;
+                if (pair.longMargin > marginLimit){
+                  pair.criticalBuyLongPriceWarning = false;
+                  pair.criticalBuyLongPrice = 0;
+                }
               }
 
               pair.longLiquidatePrice = longPosition.liquidatePrice;
@@ -1131,8 +1133,10 @@ export class TradingService {
                 }
                 pair.criticalBuyShortPrice = shortCriticalBuyPrice;
               } else {
-                pair.criticalBuyShortPriceWarning = false;
-                pair.criticalBuyShortPrice = 0;
+                if (pair.shortMargin > marginLimit) {
+                  pair.criticalBuyShortPriceWarning = false;
+                  pair.criticalBuyShortPrice = 0;
+                }
               }
 
               pair.shortLiquidatePrice = shortPosition.liquidatePrice;
