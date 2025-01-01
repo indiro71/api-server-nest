@@ -223,7 +223,9 @@ export class MxcService {
     const apiUrl = 'https://contract.mexc.com/api/v1/private/order/list/open_orders';
     const timestamp = Date.now().toString();
 
-    const params: Record<string, string> = {};
+    const params: Record<string, any> = {
+      "page_size": 1000
+    };
 
     if (symbol) params.symbol = symbol;
 
