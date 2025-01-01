@@ -1017,7 +1017,7 @@ export class TradingService {
               if (pair.sellLongPrice !== longSellPrice || !longSellOrder) {
                 pair.sellLongPriceWarning = true;
 
-                if (!pair.sellLongNotification && timeEnabledNotify) {
+                if (!pair.sellLongNotification) {
                   message = message + `💰 [${pair.name}] [LONG] [SELL]  [${longSellPrice}] \n Необходимо проверить позицию продажи лонга за ${longSellPrice}$`;
                   needSendNotification = true;
                   pair.sellLongNotification = true;
@@ -1149,7 +1149,7 @@ export class TradingService {
               if (pair.sellShortPrice !== shortSellPrice || !shortSellOrder) {
                 pair.sellShortPriceWarning = true;
 
-                if (!pair.sellShortNotification && timeEnabledNotify) {
+                if (!pair.sellShortNotification) {
                   message = message + `💰 [${pair.name}] [SHORT] [SELL]  [${shortSellPrice}] \n Необходимо проверить позицию продажи шорта за ${shortSellPrice}$`;
                   needSendNotification = true;
                   pair.sellShortNotification = true;
