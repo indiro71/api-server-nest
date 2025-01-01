@@ -971,8 +971,8 @@ export class TradingService {
                 if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
                   pair.nextBuyLongPriceWarning = true;
 
-                  if (!pair.buyLongNotification && timeEnabledNotify) {
-                    message = message + `🚨 [${pair.name}] [LONG] [BUY] [MORE] [${pair.nextBuyLongPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${pair.nextBuyLongPrice}$`;
+                  if (!pair.buyLongNotification) {
+                    message = message + `🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`;
                     needSendNotification = true;
                     pair.buyLongNotification = true;
                   }
@@ -986,7 +986,7 @@ export class TradingService {
                 pair.nextBuyLongPrice = 0;
               }
 
-              //проверка критической позиции покупки шорта
+              //проверка критической позиции покупки лонга
               const longCriticalBuyPrice = +(pair.longPrice - (pair.longPrice * pair.criticalPercent) / 100).toFixed(pair.round);
               const criticalBuyLongOrder = orders.data.find(order => order.price === longCriticalBuyPrice && order.symbol === pair.contract);
 
@@ -1103,8 +1103,8 @@ export class TradingService {
                 if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
                   pair.nextBuyShortPriceWarning = true;
 
-                  if (!pair.buyShortNotification && timeEnabledNotify) {
-                    message = message + `🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${pair.nextBuyShortPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${pair.nextBuyShortPrice}$`;
+                  if (!pair.buyShortNotification) {
+                    message = message + `🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`;
                     needSendNotification = true;
                     pair.buyShortNotification = true;
                   }
