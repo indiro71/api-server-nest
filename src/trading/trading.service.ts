@@ -1001,8 +1001,8 @@ export class TradingService {
                 }
                 pair.criticalBuyLongPrice = longCriticalBuyPrice;
               } else {
+                pair.criticalBuyLongPriceWarning = false;
                 if (pair.longMargin > marginLimit){
-                  pair.criticalBuyLongPriceWarning = false;
                   pair.criticalBuyLongPrice = 0;
                 }
               }
@@ -1013,7 +1013,7 @@ export class TradingService {
               const longSellPrice = +(pair.longPrice + (pair.longPrice * pair.sellPercent) / 100).toFixed(pair.round);
               const longSellOrder = orders.data.find(order => order.price === longSellPrice && order.symbol === pair.contract);
 
-              // какая-то проблема с критическим ордером
+              // какая-то проблема с ордером продажи
               if (pair.sellLongPrice !== longSellPrice || !longSellOrder) {
                 pair.sellLongPriceWarning = true;
 
@@ -1133,8 +1133,8 @@ export class TradingService {
                 }
                 pair.criticalBuyShortPrice = shortCriticalBuyPrice;
               } else {
+                pair.criticalBuyShortPriceWarning = false;
                 if (pair.shortMargin > marginLimit) {
-                  pair.criticalBuyShortPriceWarning = false;
                   pair.criticalBuyShortPrice = 0;
                 }
               }
@@ -1145,7 +1145,7 @@ export class TradingService {
               const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * pair.sellPercent) / 100).toFixed(pair.round);
               const shortSellOrder = orders.data.find(order => order.price === shortSellPrice && order.symbol === pair.contract);
 
-              // какая-то проблема с критическим ордером
+              // какая-то проблема с ордером продажи
               if (pair.sellShortPrice !== shortSellPrice || !shortSellOrder) {
                 pair.sellShortPriceWarning = true;
 
