@@ -1006,6 +1006,25 @@ export class TradingService {
               pair.criticalBuyLongPrice = longCriticalBuyPrice;
 
               pair.longLiquidatePrice = longPosition.liquidatePrice;
+
+              //проверка позиции продажи лонга
+              const longSellPrice = +(pair.longPrice + (pair.longPrice * pair.sellPercent) / 100).toFixed(pair.round);
+              const longSellOrder = orders.data.find(order => order.price === longSellPrice && order.symbol === pair.contract);
+
+              // какая-то проблема с критическим ордером
+              if (pair.sellLongPrice !== longSellPrice || !longSellOrder) {
+                pair.sellLongPriceWarning = true;
+
+                if (!pair.sellLongNotification && timeEnabledNotify) {
+                  message = message + `💰 [${pair.name}] [LONG] [SELL]  [${longSellPrice}] \n Необходимо проверить позицию продажи лонга за ${longSellPrice}$`;
+                  needSendNotification = true;
+                  pair.sellLongNotification = true;
+                }
+              } else {
+                pair.sellLongPriceWarning = false;
+              }
+
+              pair.sellLongPrice = longSellPrice;
             }
 
             if (shortPosition) {
@@ -1117,11 +1136,30 @@ export class TradingService {
               pair.criticalBuyShortPrice = shortCriticalBuyPrice;
 
               pair.shortLiquidatePrice = shortPosition.liquidatePrice;
+
+              //проверка позиции продажи шорта
+              const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * pair.sellPercent) / 100).toFixed(pair.round);
+              const shortSellOrder = orders.data.find(order => order.price === shortSellPrice && order.symbol === pair.contract);
+
+              // какая-то проблема с критическим ордером
+              if (pair.sellShortPrice !== shortSellPrice || !shortSellOrder) {
+                pair.sellShortPriceWarning = true;
+
+                if (!pair.sellShortNotification && timeEnabledNotify) {
+                  message = message + `💰 [${pair.name}] [SHORT] [SELL]  [${shortSellPrice}] \n Необходимо проверить позицию продажи шорта за ${shortSellPrice}$`;
+                  needSendNotification = true;
+                  pair.sellShortNotification = true;
+                }
+              } else {
+                pair.sellShortPriceWarning = false;
+              }
+
+              pair.sellShortPrice = shortSellPrice;
             }
 
             pair.currentPrice = pairCurrentPrice;
 
-            if (needClearNotification || this.clearNotificationsCount === 5) { // todo remove
+            if (needClearNotification || this.clearNotificationsCount === 50) {
               pair.sellLongNotification = false;
               pair.buyMoreLongNotification = false;
               pair.buyLongNotification = false;
@@ -1147,7 +1185,7 @@ export class TradingService {
           }
         }
 
-        if (this.clearNotificationsCount === 5) { // todo remove
+        if (this.clearNotificationsCount === 50) {
           this.clearNotificationsCount = 0;
         } else {
           this.clearNotificationsCount = this.clearNotificationsCount + 1;

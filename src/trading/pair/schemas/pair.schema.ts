@@ -275,6 +275,30 @@ export class Pair {
     default: false,
   })
   criticalBuyLongPriceWarning: boolean;
+
+  @ApiProperty({ example: 100, description: 'Sell Short Price' })
+  @Prop({
+    default: 0.1,
+  })
+  sellShortPrice: number;
+
+  @ApiProperty({ example: false, description: 'Sell Short Price Warning' })
+  @Prop({
+    default: false,
+  })
+  sellShortPriceWarning: boolean;
+
+  @ApiProperty({ example: 100, description: 'Sell Long Price' })
+  @Prop({
+    default: 0.1,
+  })
+  sellLongPrice: number;
+
+  @ApiProperty({ example: false, description: 'Sell Long Price Warning' })
+  @Prop({
+    default: false,
+  })
+  sellLongPriceWarning: boolean;
 }
 
 export const PairSchema = SchemaFactory.createForClass(Pair);
