@@ -991,7 +991,7 @@ export class TradingService {
               const criticalBuyLongOrder = orders.data.find(order => order.price === longCriticalBuyPrice && order.symbol === pair.contract);
 
               // какая-то проблема с критическим ордером
-              if (pair.criticalBuyLongPrice !== longCriticalBuyPrice || !criticalBuyLongOrder) {
+              if ((pair.criticalBuyLongPrice !== longCriticalBuyPrice || !criticalBuyLongOrder) && pair.longMargin < marginLimit) {
                 pair.criticalBuyLongPriceWarning = true;
 
                 if (!pair.alarmLongNotification && timeEnabledNotify) {
@@ -999,11 +999,11 @@ export class TradingService {
                   needAlarmNotification = true;
                   pair.alarmLongNotification = true;
                 }
+                pair.criticalBuyLongPrice = longCriticalBuyPrice;
               } else {
                 pair.criticalBuyLongPriceWarning = false;
+                pair.criticalBuyLongPrice = 0;
               }
-
-              pair.criticalBuyLongPrice = longCriticalBuyPrice;
 
               pair.longLiquidatePrice = longPosition.liquidatePrice;
 
@@ -1121,7 +1121,7 @@ export class TradingService {
               const criticalBuyShortOrder = orders.data.find(order => order.price === shortCriticalBuyPrice && order.symbol === pair.contract);
 
               // какая-то проблема с критическим ордером
-              if (pair.criticalBuyShortPrice !== shortCriticalBuyPrice || !criticalBuyShortOrder) {
+              if ((pair.criticalBuyShortPrice !== shortCriticalBuyPrice || !criticalBuyShortOrder) && pair.shortMargin < marginLimit) {
                 pair.criticalBuyShortPriceWarning = true;
 
                 if (!pair.alarmShortNotification && timeEnabledNotify) {
@@ -1129,11 +1129,11 @@ export class TradingService {
                   needAlarmNotification = true;
                   pair.alarmShortNotification = true;
                 }
+                pair.criticalBuyShortPrice = shortCriticalBuyPrice;
               } else {
                 pair.criticalBuyShortPriceWarning = false;
+                pair.criticalBuyShortPrice = 0;
               }
-
-              pair.criticalBuyShortPrice = shortCriticalBuyPrice;
 
               pair.shortLiquidatePrice = shortPosition.liquidatePrice;
 
