@@ -64,7 +64,7 @@ export class Pair {
 
   @ApiProperty({ example: 6, description: 'Buy percent' })
   @Prop({
-    default: 6,
+    default: 8,
   })
   buyPercent: number;
 
@@ -74,9 +74,15 @@ export class Pair {
   })
   alarmPercent: number;
 
+  @ApiProperty({ example: 6, description: 'Critical percent' })
+  @Prop({
+    default: 9.5,
+  })
+  criticalPercent: number;
+
   @ApiProperty({ example: 2, description: 'Buy more percent' })
   @Prop({
-    default: 2,
+    default: 3,
   })
   buyMorePercent: number;
 
@@ -197,6 +203,102 @@ export class Pair {
     default: false,
   })
   sellShortNotification: boolean;
+
+  @ApiProperty({ example: 2, description: 'Round' })
+  @Prop({
+    default: 2,
+  })
+  round: number;
+
+  @ApiProperty({ example: 1, description: 'Order' })
+  @Prop({
+    default: 1,
+  })
+  order: number;
+
+  @ApiProperty({ example: 100, description: 'Long Liquidate Price' })
+  @Prop({
+    default: 0.1,
+  })
+  longLiquidatePrice: number;
+
+  @ApiProperty({ example: 100, description: 'Short Liquidate Price' })
+  @Prop({
+    default: 0.1,
+  })
+  shortLiquidatePrice: number;
+
+  @ApiProperty({ example: 100, description: 'Next Buy Short Price' })
+  @Prop({
+    default: 0.1,
+  })
+  nextBuyShortPrice: number;
+
+  @ApiProperty({ example: false, description: 'Next Buy Short Price Warning' })
+  @Prop({
+    default: false,
+  })
+  nextBuyShortPriceWarning: boolean;
+
+  @ApiProperty({ example: 100, description: 'Critical Buy Short Price' })
+  @Prop({
+    default: 0.1,
+  })
+  criticalBuyShortPrice: number;
+
+  @ApiProperty({ example: false, description: 'Critical Buy Short Price Warning' })
+  @Prop({
+    default: false,
+  })
+  criticalBuyShortPriceWarning: boolean;
+
+  @ApiProperty({ example: 100, description: 'Next Buy Long Price' })
+  @Prop({
+    default: 0.1,
+  })
+  nextBuyLongPrice: number;
+
+  @ApiProperty({ example: false, description: 'Next Buy Long Price Warning' })
+  @Prop({
+    default: false,
+  })
+  nextBuyLongPriceWarning: boolean;
+
+  @ApiProperty({ example: 100, description: 'Critical Buy Long Price' })
+  @Prop({
+    default: 0.1,
+  })
+  criticalBuyLongPrice: number;
+
+  @ApiProperty({ example: false, description: 'Critical Buy Long Price Warning' })
+  @Prop({
+    default: false,
+  })
+  criticalBuyLongPriceWarning: boolean;
+
+  @ApiProperty({ example: 100, description: 'Sell Short Price' })
+  @Prop({
+    default: 0.1,
+  })
+  sellShortPrice: number;
+
+  @ApiProperty({ example: false, description: 'Sell Short Price Warning' })
+  @Prop({
+    default: false,
+  })
+  sellShortPriceWarning: boolean;
+
+  @ApiProperty({ example: 100, description: 'Sell Long Price' })
+  @Prop({
+    default: 0.1,
+  })
+  sellLongPrice: number;
+
+  @ApiProperty({ example: false, description: 'Sell Long Price Warning' })
+  @Prop({
+    default: false,
+  })
+  sellLongPriceWarning: boolean;
 }
 
 export const PairSchema = SchemaFactory.createForClass(Pair);
