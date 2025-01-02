@@ -971,7 +971,7 @@ export class TradingService {
                 if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
                   pair.nextBuyLongPriceWarning = true;
 
-                  if (!pair.buyLongNotification) {
+                  if (!pair.buyLongNotification && timeEnabledNotify) {
                     message = message + `🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`;
                     needSendNotification = true;
                     pair.buyLongNotification = true;
@@ -1017,7 +1017,7 @@ export class TradingService {
               if (pair.sellLongPrice !== longSellPrice || !longSellOrder) {
                 pair.sellLongPriceWarning = true;
 
-                if (!pair.sellLongNotification) {
+                if (!pair.sellLongNotification && timeEnabledNotify) {
                   message = message + `💰 [${pair.name}] [LONG] [SELL]  [${longSellPrice}] \n Необходимо проверить позицию продажи лонга за ${longSellPrice}$`;
                   needSendNotification = true;
                   pair.sellLongNotification = true;
@@ -1027,6 +1027,14 @@ export class TradingService {
               }
 
               pair.sellLongPrice = longSellPrice;
+            } else {
+              if (!pair.buyLongNotification) {
+                message = message + `🚨 [${pair.name}] [LONG] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию лонга`;
+                needSendNotification = true;
+                pair.buyLongNotification = true;
+                pair.nextBuyLongPriceWarning = true;
+                pair.nextBuyLongPrice = 0;
+              }
             }
 
             if (shortPosition) {
@@ -1103,7 +1111,7 @@ export class TradingService {
                 if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
                   pair.nextBuyShortPriceWarning = true;
 
-                  if (!pair.buyShortNotification) {
+                  if (!pair.buyShortNotification && timeEnabledNotify) {
                     message = message + `🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`;
                     needSendNotification = true;
                     pair.buyShortNotification = true;
@@ -1149,7 +1157,7 @@ export class TradingService {
               if (pair.sellShortPrice !== shortSellPrice || !shortSellOrder) {
                 pair.sellShortPriceWarning = true;
 
-                if (!pair.sellShortNotification) {
+                if (!pair.sellShortNotification && timeEnabledNotify) {
                   message = message + `💰 [${pair.name}] [SHORT] [SELL]  [${shortSellPrice}] \n Необходимо проверить позицию продажи шорта за ${shortSellPrice}$`;
                   needSendNotification = true;
                   pair.sellShortNotification = true;
@@ -1159,6 +1167,14 @@ export class TradingService {
               }
 
               pair.sellShortPrice = shortSellPrice;
+            } else {
+              if (!pair.buyShortNotification) {
+                message = message + `🚨 [${pair.name}] [SHORT] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию шорта`;
+                needSendNotification = true;
+                pair.buyShortNotification = true;
+                pair.nextBuyShortPriceWarning = true;
+                pair.nextBuyShortPrice = 0;
+              }
             }
 
             pair.currentPrice = pairCurrentPrice;
