@@ -870,7 +870,7 @@ export class TradingService {
         const positions = await this.mxcService.getPositions();
         const orders = await this.mxcService.getOrders();
 
-        if (positions?.success) {
+        if (positions?.success && positions?.data?.length > 0) {
           for (const pair of pairs) {
             if (!pair.isActive) continue;
             let message = '';
@@ -885,11 +885,11 @@ export class TradingService {
             const longPosition = positions.data.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
             const shortPosition = positions.data.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
 
-            if (pair.longPrice !== longPosition?.holdAvgPrice || pair.longMargin !== longPosition?.oim) needClearNotification = true;
+            // if (pair.longPrice !== longPosition?.holdAvgPrice || pair.longMargin !== longPosition?.oim) needClearNotification = true;
             pair.longPrice = longPosition?.holdAvgPrice || 0;
             pair.longMargin = longPosition?.oim || 0;
 
-            if (pair.shortPrice !== shortPosition?.holdAvgPrice || pair.shortMargin !== shortPosition?.oim) needClearNotification = true;
+            // if (pair.shortPrice !== shortPosition?.holdAvgPrice || pair.shortMargin !== shortPosition?.oim) needClearNotification = true;
             pair.shortPrice = shortPosition?.holdAvgPrice || 0;
             pair.shortMargin = shortPosition?.oim || 0;
 
