@@ -882,8 +882,8 @@ export class TradingService {
             const timeEnabledNotify = false;
 
             const pairCurrentPrice = + await this.mxcService.getContractFairPrice(pair.contract);
-            const longPosition = positions.data.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
-            const shortPosition = positions.data.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
+            const longPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
+            const shortPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
 
             // if (pair.longPrice !== longPosition?.holdAvgPrice || pair.longMargin !== longPosition?.oim) needClearNotification = true;
             pair.longPrice = longPosition?.holdAvgPrice || 0;
@@ -968,13 +968,13 @@ export class TradingService {
                   longNextBuyPercent = pair.criticalPercent;
                 }
                 const longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
-                const nextBuyLongOrder = orders.data.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract);
+                const nextBuyLongOrder = orders.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract);
 
                 // какая-то проблема со следующим ордером
                 if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
                   pair.nextBuyLongPriceWarning = true;
 
-                  if (!pair.buyLongNotification && timeEnabledNotify) {
+                  if (!pair.buyLongNotification) {
                     message = message + `🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`;
                     needSendNotification = true;
                     pair.buyLongNotification = true;
@@ -991,7 +991,7 @@ export class TradingService {
 
               //проверка критической позиции покупки лонга
               const longCriticalBuyPrice = +(pair.longPrice - (pair.longPrice * pair.criticalPercent) / 100).toFixed(pair.round);
-              const criticalBuyLongOrder = orders.data.find(order => order.price === longCriticalBuyPrice && order.symbol === pair.contract);
+              const criticalBuyLongOrder = orders.data?.find(order => order.price === longCriticalBuyPrice && order.symbol === pair.contract);
 
               // какая-то проблема с критическим ордером
               if ((pair.criticalBuyLongPrice !== longCriticalBuyPrice || !criticalBuyLongOrder) && pair.longMargin < marginLimit) {
@@ -1015,7 +1015,7 @@ export class TradingService {
               //проверка позиции продажи лонга
               const longSellPercent = pair.longMargin < pair.marginStep ? 1 : pair.sellPercent;
               const longSellPrice = +(pair.longPrice + (pair.longPrice * longSellPercent) / 100).toFixed(pair.round);
-              const longSellOrder = orders.data.find(order => order.price === longSellPrice && order.symbol === pair.contract);
+              const longSellOrder = orders.data?.find(order => order.price === longSellPrice && order.symbol === pair.contract);
 
               // какая-то проблема с ордером продажи
               if (pair.sellLongPrice !== longSellPrice || !longSellOrder) {
@@ -1112,13 +1112,13 @@ export class TradingService {
                   shortNextBuyPercent = pair.criticalPercent;
                 }
                 const shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
-                const nextBuyShortOrder = orders.data.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract);
+                const nextBuyShortOrder = orders.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract);
 
                 // какая-то проблема со следующим ордером
                 if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
                   pair.nextBuyShortPriceWarning = true;
 
-                  if (!pair.buyShortNotification && timeEnabledNotify) {
+                  if (!pair.buyShortNotification) {
                     message = message + `🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`;
                     needSendNotification = true;
                     pair.buyShortNotification = true;
@@ -1135,7 +1135,7 @@ export class TradingService {
 
               //проверка критической позиции покупки шорта
               const shortCriticalBuyPrice = +(pair.shortPrice + (pair.shortPrice * pair.criticalPercent) / 100).toFixed(pair.round);
-              const criticalBuyShortOrder = orders.data.find(order => order.price === shortCriticalBuyPrice && order.symbol === pair.contract);
+              const criticalBuyShortOrder = orders.data?.find(order => order.price === shortCriticalBuyPrice && order.symbol === pair.contract);
 
               // какая-то проблема с критическим ордером
               if ((pair.criticalBuyShortPrice !== shortCriticalBuyPrice || !criticalBuyShortOrder) && pair.shortMargin < marginLimit) {
@@ -1159,7 +1159,7 @@ export class TradingService {
               //проверка позиции продажи шорта
               const shortSellPercent = pair.shortMargin < pair.marginStep ? 1 : pair.sellPercent;
               const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * shortSellPercent) / 100).toFixed(pair.round);
-              const shortSellOrder = orders.data.find(order => order.price === shortSellPrice && order.symbol === pair.contract);
+              const shortSellOrder = orders.data?.find(order => order.price === shortSellPrice && order.symbol === pair.contract);
 
               // какая-то проблема с ордером продажи
               if (pair.sellShortPrice !== shortSellPrice || !shortSellOrder) {
