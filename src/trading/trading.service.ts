@@ -964,6 +964,9 @@ export class TradingService {
 
               // высчитывание следующей позиции покупки лонга
               if (longNextBuyPercent) {
+                if (longNextBuyPercent > pair.criticalPercent) {
+                  longNextBuyPercent = pair.criticalPercent;
+                }
                 const longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
                 const nextBuyLongOrder = orders.data.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract);
 
@@ -1010,7 +1013,8 @@ export class TradingService {
               pair.longLiquidatePrice = longPosition.liquidatePrice;
 
               //проверка позиции продажи лонга
-              const longSellPrice = +(pair.longPrice + (pair.longPrice * pair.sellPercent) / 100).toFixed(pair.round);
+              const longSellPercent = pair.longMargin < pair.marginStep ? 1 : pair.sellPercent;
+              const longSellPrice = +(pair.longPrice + (pair.longPrice * longSellPercent) / 100).toFixed(pair.round);
               const longSellOrder = orders.data.find(order => order.price === longSellPrice && order.symbol === pair.contract);
 
               // какая-то проблема с ордером продажи
@@ -1104,6 +1108,9 @@ export class TradingService {
 
               // высчитывание следующей позиции покупки шорта
               if (shortNextBuyPercent) {
+                if (shortNextBuyPercent > pair.criticalPercent) {
+                  shortNextBuyPercent = pair.criticalPercent;
+                }
                 const shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
                 const nextBuyShortOrder = orders.data.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract);
 
@@ -1150,7 +1157,8 @@ export class TradingService {
               pair.shortLiquidatePrice = shortPosition.liquidatePrice;
 
               //проверка позиции продажи шорта
-              const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * pair.sellPercent) / 100).toFixed(pair.round);
+              const shortSellPercent = pair.shortMargin < pair.marginStep ? 1 : pair.sellPercent;
+              const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * shortSellPercent) / 100).toFixed(pair.round);
               const shortSellOrder = orders.data.find(order => order.price === shortSellPrice && order.symbol === pair.contract);
 
               // какая-то проблема с ордером продажи
