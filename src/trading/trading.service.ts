@@ -948,12 +948,9 @@ export class TradingService {
                       pair.buyMoreLongNotification = true;
                     }
                   }
-                }
 
-                //текущий процент больше процента, при котором возможно скорое закрытие лонга
-                if (longAbsolutePercent > longNextBuyPercent) {
                   // маржа лонга меньше лимита маржи
-                  if (canBuy) {
+                  if (canBuy && !canBuyMore) {
                     if (!pair.buyLongNotification) {
                       message = message + `🚨⬇️ [${pair.name}] [LONG] [BUY] [${pair.marginStep}] \n Сильная просадка лонга ${pair.name} на ${longLeveragePercent}%. \n Необходимо докупить позицию лонга.`;
                       needSendNotification = true;
@@ -1098,12 +1095,9 @@ export class TradingService {
                       pair.buyMoreShortNotification = true;
                     }
                   }
-                }
 
-                //текущий процент больше процента, при котором возможно скорое закрытие шорта
-                if (shortAbsolutePercent > shortNextBuyPercent) {
                   // маржа шорта меньше лимита маржи
-                  if (canBuy) {
+                  if (canBuy && !canBuyMore) {
                     if (!pair.buyShortNotification) {
                       message = message + `🚨⬇️ [${pair.name}] [SHORT] [BUY] [${pair.marginStep}] \n Сильная просадка шорта ${pair.name} на ${shortLeveragePercent}%. \n Необходимо докупить позицию шорта.`;
                       needSendNotification = true;
