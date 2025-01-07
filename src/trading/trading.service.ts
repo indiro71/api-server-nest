@@ -5,7 +5,7 @@ import { TelegramService } from '../services/telegram/telegram.service';
 import { OrderService } from './order/order.service';
 import { CreateOrderDto } from './order/dto/create-order.dto';
 import { PairService } from './pair/pair.service';
-import { PositionType } from '../services/mxc/mxc.interfaces';
+import { PositionType, SideType } from '../services/mxc/mxc.interfaces';
 
 /* tg commands---------------
 
@@ -963,7 +963,7 @@ export class TradingService {
               // высчитывание следующей позиции покупки лонга
               if (longNextBuyPercent) {
                 const longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
-                const nextBuyLongOrder = orders.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract);
+                const nextBuyLongOrder = orders?.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract && order.side === SideType.LONG_OPEN);
 
                 // критическая просадка лонга
                 if (longAbsolutePercent > pair.alarmPercent && canBuy &&  !nextBuyLongOrder) {
@@ -993,33 +993,34 @@ export class TradingService {
                 pair.nextBuyLongPrice = 0;
               }
 
-              //проверка критической позиции покупки лонга
-              const longCriticalBuyPrice = +(pair.longPrice - (pair.longPrice * pair.criticalPercent) / 100).toFixed(pair.round);
-              const criticalBuyLongOrder = orders.data?.find(order => order.price === longCriticalBuyPrice && order.symbol === pair.contract);
+              // //проверка критической позиции покупки лонга
+              // const longCriticalBuyPrice = +(pair.longPrice - (pair.longPrice * pair.criticalPercent) / 100).toFixed(pair.round);
+              // const criticalBuyLongOrder = orders.data?.find(order => order.price === longCriticalBuyPrice && order.symbol === pair.contract);
+              //
+              // // какая-то проблема с критическим ордером
+              // if ((pair.criticalBuyLongPrice !== longCriticalBuyPrice || !criticalBuyLongOrder) && canBuy) {
+              //   pair.criticalBuyLongPriceWarning = true;
+              //
+              //   if (!pair.alarmLongNotification && timeEnabledNotify) {
+              //     message = message + `🚨 [${pair.name}] [LONG] [BUY] [CRITICAL] [${longCriticalBuyPrice}] \n Необходимо проверить критическую позицию лонга за ${longCriticalBuyPrice}$`;
+              //     needAlarmNotification = true;
+              //     pair.alarmLongNotification = true;
+              //   }
+              //   pair.criticalBuyLongPrice = longCriticalBuyPrice;
+              // } else {
+              //   pair.criticalBuyLongPriceWarning = false;
+              //   if (pair.longMargin > marginLimit){
+              //     pair.criticalBuyLongPrice = 0;
+              //   }
+              // }
 
-              // какая-то проблема с критическим ордером
-              if ((pair.criticalBuyLongPrice !== longCriticalBuyPrice || !criticalBuyLongOrder) && canBuy) {
-                pair.criticalBuyLongPriceWarning = true;
-
-                if (!pair.alarmLongNotification && timeEnabledNotify) {
-                  message = message + `🚨 [${pair.name}] [LONG] [BUY] [CRITICAL] [${longCriticalBuyPrice}] \n Необходимо проверить критическую позицию лонга за ${longCriticalBuyPrice}$`;
-                  needAlarmNotification = true;
-                  pair.alarmLongNotification = true;
-                }
-                pair.criticalBuyLongPrice = longCriticalBuyPrice;
-              } else {
-                pair.criticalBuyLongPriceWarning = false;
-                if (pair.longMargin > marginLimit){
-                  pair.criticalBuyLongPrice = 0;
-                }
-              }
-
+              pair.autoAddLongMargin = longPosition.autoAddIm;
               pair.longLiquidatePrice = longPosition.liquidatePrice;
 
               //проверка позиции продажи лонга
               const longSellPercent = pair.longMargin < pair.marginStep ? 1 : pair.sellPercent;
               const longSellPrice = +(pair.longPrice + (pair.longPrice * longSellPercent) / 100).toFixed(pair.round);
-              const longSellOrder = orders.data?.find(order => order.price === longSellPrice && order.symbol === pair.contract);
+              const longSellOrder = orders?.data?.find(order => order.price === longSellPrice && order.symbol === pair.contract && order.side === SideType.LONG_CLOSE);
 
               // какая-то проблема с ордером продажи
               if (pair.sellLongPrice !== longSellPrice || !longSellOrder) {
@@ -1111,7 +1112,7 @@ export class TradingService {
               // высчитывание следующей позиции покупки шорта
               if (shortNextBuyPercent) {
                 const shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
-                const nextBuyShortOrder = orders.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract);
+                const nextBuyShortOrder = orders?.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract && order.side === SideType.SHORT_OPEN);
 
                 // критическая просадка шорта
                 if (shortAbsolutePercent > pair.alarmPercent && canBuy && !nextBuyShortOrder) {
@@ -1141,33 +1142,34 @@ export class TradingService {
                 pair.nextBuyShortPrice = 0;
               }
 
-              //проверка критической позиции покупки шорта
-              const shortCriticalBuyPrice = +(pair.shortPrice + (pair.shortPrice * pair.criticalPercent) / 100).toFixed(pair.round);
-              const criticalBuyShortOrder = orders.data?.find(order => order.price === shortCriticalBuyPrice && order.symbol === pair.contract);
+              // //проверка критической позиции покупки шорта
+              // const shortCriticalBuyPrice = +(pair.shortPrice + (pair.shortPrice * pair.criticalPercent) / 100).toFixed(pair.round);
+              // const criticalBuyShortOrder = orders.data?.find(order => order.price === shortCriticalBuyPrice && order.symbol === pair.contract);
+              //
+              // // какая-то проблема с критическим ордером
+              // if ((pair.criticalBuyShortPrice !== shortCriticalBuyPrice || !criticalBuyShortOrder) && canBuy) {
+              //   pair.criticalBuyShortPriceWarning = true;
+              //
+              //   if (!pair.alarmShortNotification && timeEnabledNotify) {
+              //     message = message + `🚨 [${pair.name}] [SHORT] [BUY] [CRITICAL] [${shortCriticalBuyPrice}] \n Необходимо проверить критическую позицию шорта за ${shortCriticalBuyPrice}$`;
+              //     needAlarmNotification = true;
+              //     pair.alarmShortNotification = true;
+              //   }
+              //   pair.criticalBuyShortPrice = shortCriticalBuyPrice;
+              // } else {
+              //   pair.criticalBuyShortPriceWarning = false;
+              //   if (pair.shortMargin > marginLimit) {
+              //     pair.criticalBuyShortPrice = 0;
+              //   }
+              // }
 
-              // какая-то проблема с критическим ордером
-              if ((pair.criticalBuyShortPrice !== shortCriticalBuyPrice || !criticalBuyShortOrder) && canBuy) {
-                pair.criticalBuyShortPriceWarning = true;
-
-                if (!pair.alarmShortNotification && timeEnabledNotify) {
-                  message = message + `🚨 [${pair.name}] [SHORT] [BUY] [CRITICAL] [${shortCriticalBuyPrice}] \n Необходимо проверить критическую позицию шорта за ${shortCriticalBuyPrice}$`;
-                  needAlarmNotification = true;
-                  pair.alarmShortNotification = true;
-                }
-                pair.criticalBuyShortPrice = shortCriticalBuyPrice;
-              } else {
-                pair.criticalBuyShortPriceWarning = false;
-                if (pair.shortMargin > marginLimit) {
-                  pair.criticalBuyShortPrice = 0;
-                }
-              }
-
+              pair.autoAddShortMargin = shortPosition.autoAddIm;
               pair.shortLiquidatePrice = shortPosition.liquidatePrice;
 
               //проверка позиции продажи шорта
               const shortSellPercent = pair.shortMargin < pair.marginStep ? 1 : pair.sellPercent;
               const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * shortSellPercent) / 100).toFixed(pair.round);
-              const shortSellOrder = orders.data?.find(order => order.price === shortSellPrice && order.symbol === pair.contract);
+              const shortSellOrder = orders?.data?.find(order => order.price === shortSellPrice && order.symbol === pair.contract && order.side === SideType.SHORT_CLOSE);
 
               // какая-то проблема с ордером продажи
               if (pair.sellShortPrice !== shortSellPrice || !shortSellOrder) {
