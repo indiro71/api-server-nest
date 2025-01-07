@@ -299,6 +299,18 @@ export class Pair {
     default: false,
   })
   sellLongPriceWarning: boolean;
+
+  @ApiProperty({ example: false, description: 'Auto add long margin' })
+  @Prop({
+    default: false,
+  })
+  autoAddLongMargin: boolean;
+
+  @ApiProperty({ example: false, description: 'Auto add short margin' })
+  @Prop({
+    default: false,
+  })
+  autoAddShortMargin: boolean;
 }
 
 export const PairSchema = SchemaFactory.createForClass(Pair);
