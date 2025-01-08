@@ -967,11 +967,11 @@ export class TradingService {
 
                 // критическая просадка лонга
                 if (longAbsolutePercent > pair.alarmPercent && canBuy &&  !nextBuyLongOrder) {
-                  if (!pair.alarmLongNotification) {
+                  // if (!pair.alarmLongNotification) {
                     message = message + `🚨🚨🚨 [${pair.name}] [LONG] [BUY] [${pair.marginStep}] \n Критическая просадка лонга ${pair.name} на ${longLeveragePercent}%. \n Необходимо срочно выставить позицию лонга.`;
                     needAlarmNotification = true;
-                    pair.alarmLongNotification = true;
-                  }
+                    // pair.alarmLongNotification = true;
+                  // }
                 }
 
                 // какая-то проблема со следующим ордером
@@ -1116,11 +1116,11 @@ export class TradingService {
 
                 // критическая просадка шорта
                 if (shortAbsolutePercent > pair.alarmPercent && canBuy && !nextBuyShortOrder) {
-                  if (!pair.alarmShortNotification) {
+                  // if (!pair.alarmShortNotification) {
                     message = message + `🚨🚨🚨 [${pair.name}] [SHORT] [BUY] [${pair.marginStep}] \n Критическая просадка шорта ${pair.name} на ${shortLeveragePercent}%. \n Необходимо срочно выставить позицию шорта.`;
                     needAlarmNotification = true;
-                    pair.alarmShortNotification = true;
-                  }
+                    // pair.alarmShortNotification = true;
+                  // }
                 }
 
                 // какая-то проблема со следующим ордером
