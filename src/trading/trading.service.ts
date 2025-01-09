@@ -868,9 +868,10 @@ export class TradingService {
 
       if (pairs?.length > 0 && !this.isTraded) {
         const positions = await this.mxcService.getPositions();
+        await this.waiting();
         const orders = await this.mxcService.getOrders();
 
-        if (positions?.success && positions?.data?.length > 0) {
+        if (positions?.success && positions?.data?.length > 0 && orders?.data?.length > 0) {
           for (const pair of pairs) {
             if (!pair.isActive) continue;
             let message = '';
@@ -1231,9 +1232,9 @@ export class TradingService {
       }
     } catch (e) {
       console.error(e?.message);
-      if (this.isWorkingTime()) {
-        await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
-      }
+      // if (this.isWorkingTime()) {
+      //   await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
+      // }
     }
   }
 
