@@ -32,12 +32,6 @@ export class Pair {
   })
   leverage: number;
 
-  @ApiProperty({ example: 200, description: 'Margin Limit' })
-  @Prop({
-    default: 200,
-  })
-  marginLimit: number;
-
   @ApiProperty({ example: 20, description: 'Margin Step' })
   @Prop({
     default: 20,
@@ -311,6 +305,12 @@ export class Pair {
     default: false,
   })
   autoAddShortMargin: boolean;
+
+  @ApiProperty({ example: 4, description: 'Orders Count' })
+  @Prop({
+    default: 1,
+  })
+  ordersCount: number;
 }
 
 export const PairSchema = SchemaFactory.createForClass(Pair);
