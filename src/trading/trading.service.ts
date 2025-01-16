@@ -885,7 +885,7 @@ export class TradingService {
             const pairCurrentPrice = + await this.mxcService.getContractFairPrice(pair.contract);
             const longPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
             const shortPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
-            const pairOrders = positions.data?.filter(position => position.symbol === pair.contract)?.length;
+            const pairOrders = orders?.data?.filter(order => order.symbol === pair.contract)?.length;
             pair.ordersCount = pairOrders;
 
             // if (pair.longPrice !== longPosition?.holdAvgPrice || pair.longMargin !== longPosition?.oim) needClearNotification = true;
