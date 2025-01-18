@@ -934,17 +934,17 @@ export class TradingService {
                 const longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
                 const nextBuyLongOrder = orders?.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract && order.side === SideType.LONG_OPEN);
 
-                // критическая просадка лонга
-                if (longAbsolutePercent > pair.alarmPercent &&  !nextBuyLongOrder) {
-                  // if (!pair.alarmLongNotification) {
-                    message = message + `🚨🚨🚨 [${pair.name}] [LONG] [BUY] [${pair.marginStep}] \n Критическая просадка лонга ${pair.name} на ${longLeveragePercent}%. \n Необходимо срочно выставить позицию лонга.`;
-                    needAlarmNotification = true;
-                    // pair.alarmLongNotification = true;
-                  // }
-                }
+                // // критическая просадка лонга
+                // if (longAbsolutePercent > pair.alarmPercent &&  !nextBuyLongOrder) {
+                //   if (!pair.alarmLongNotification) {
+                //     message = message + `🚨🚨🚨 [${pair.name}] [LONG] [BUY] [${pair.marginStep}] \n Критическая просадка лонга ${pair.name} на ${longLeveragePercent}%. \n Необходимо срочно выставить позицию лонга.`;
+                //     needAlarmNotification = true;
+                //     pair.alarmLongNotification = true;
+                //   }
+                // }
 
                 // какая-то проблема со следующим ордером
-                if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
+                if ((pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) && longNextBuyPercent !== pair.criticalPercent) {
                   pair.nextBuyLongPriceWarning = true;
 
                   if (!pair.buyLongNotification) {
@@ -1024,17 +1024,17 @@ export class TradingService {
                 const shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
                 const nextBuyShortOrder = orders?.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract && order.side === SideType.SHORT_OPEN);
 
-                // критическая просадка шорта
-                if (shortAbsolutePercent > pair.alarmPercent  && !nextBuyShortOrder) {
-                  // if (!pair.alarmShortNotification) {
-                    message = message + `🚨🚨🚨 [${pair.name}] [SHORT] [BUY] [${pair.marginStep}] \n Критическая просадка шорта ${pair.name} на ${shortLeveragePercent}%. \n Необходимо срочно выставить позицию шорта.`;
-                    needAlarmNotification = true;
-                    // pair.alarmShortNotification = true;
-                  // }
-                }
+                // // критическая просадка шорта
+                // if (shortAbsolutePercent > pair.alarmPercent  && !nextBuyShortOrder) {
+                //   if (!pair.alarmShortNotification) {
+                //     message = message + `🚨🚨🚨 [${pair.name}] [SHORT] [BUY] [${pair.marginStep}] \n Критическая просадка шорта ${pair.name} на ${shortLeveragePercent}%. \n Необходимо срочно выставить позицию шорта.`;
+                //     needAlarmNotification = true;
+                //     pair.alarmShortNotification = true;
+                //   }
+                // }
 
                 // какая-то проблема со следующим ордером
-                if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
+                if ((pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) && shortNextBuyPercent !== pair.criticalPercent) {
                   pair.nextBuyShortPriceWarning = true;
 
                   if (!pair.buyShortNotification) {
@@ -1086,7 +1086,7 @@ export class TradingService {
 
             pair.currentPrice = pairCurrentPrice;
 
-            if (needClearNotification || this.clearNotificationsCount === 30) {
+            if (needClearNotification || this.clearNotificationsCount === 100) {
               pair.sellLongNotification = false;
               pair.buyMoreLongNotification = false;
               pair.buyLongNotification = false;
@@ -1100,7 +1100,7 @@ export class TradingService {
 
             await this.pairService.update(pair._id, pair);
 
-            if (needAlarmNotification && message && pair.sendNotification) {
+            if (needAlarmNotification && message && pair.sendNotification && (this.isWorkingTime() || this.sendNightStat)) {
               await this.telegramService.sendMessage(message);
               needAlarmNotification = false;
             }
