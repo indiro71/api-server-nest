@@ -1043,7 +1043,7 @@ export class TradingService {
                   pair.nextBuyShortPriceWarning = false;
                 }
 
-                if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = false;
+                if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = true;
                 pair.nextBuyShortPrice = shortNextBuyPrice;
               } else {
                 pair.nextBuyShortPriceWarning = false;
