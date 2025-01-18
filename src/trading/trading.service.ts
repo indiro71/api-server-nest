@@ -921,10 +921,6 @@ export class TradingService {
                 longNextBuyPercent = pair.buyMorePercent + correctionBuyMoreLongPercent;
               }
 
-              if (canBuyMore) {
-                longNextBuyPercent = pair.buyMorePercent + correctionBuyMoreLongPercent;
-              }
-
               if (longNextBuyPercent > pair.criticalPercent) {
                 longNextBuyPercent = pair.criticalPercent;
               }
@@ -956,6 +952,7 @@ export class TradingService {
                   pair.nextBuyLongPriceWarning = false;
                 }
 
+                if (pair.nextBuyLongPrice !== longNextBuyPrice) needClearNotification = true;
                 pair.nextBuyLongPrice = longNextBuyPrice;
               } else {
                 pair.nextBuyLongPriceWarning = false;
@@ -1046,6 +1043,7 @@ export class TradingService {
                   pair.nextBuyShortPriceWarning = false;
                 }
 
+                if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = true;
                 pair.nextBuyShortPrice = shortNextBuyPrice;
               } else {
                 pair.nextBuyShortPriceWarning = false;
@@ -1086,7 +1084,7 @@ export class TradingService {
 
             pair.currentPrice = pairCurrentPrice;
 
-            if (needClearNotification || this.clearNotificationsCount === 100) {
+            if (needClearNotification) { // || this.clearNotificationsCount === 100
               pair.sellLongNotification = false;
               pair.buyMoreLongNotification = false;
               pair.buyLongNotification = false;
