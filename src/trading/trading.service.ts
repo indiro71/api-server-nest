@@ -1084,7 +1084,7 @@ export class TradingService {
 
             await this.pairService.update(pair._id, pair);
 
-            if (needAlarmNotification && message) {
+            if (needAlarmNotification && message && pair.sendNotification) {
               await this.telegramService.sendMessage(message);
               needAlarmNotification = false;
             }
