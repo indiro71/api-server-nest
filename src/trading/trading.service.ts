@@ -870,13 +870,13 @@ export class TradingService {
         const positions = await this.mxcService.getPositions();
         await this.waiting();
         const orders = await this.mxcService.getOrders();
+        const messages = [];
+        let needSendNotification = false;
 
         if (positions?.success && positions?.data?.length > 0 && orders?.data?.length > 0) {
           for (const pair of pairs) {
             if (!pair.isActive) continue;
-            let message = '';
-            let needSendNotification = false;
-            let needAlarmNotification = false;
+
             let needClearNotification = false;
             const buyMoreCoefficient = 1;
             const buyCoefficient = 0.25;
@@ -921,13 +921,12 @@ export class TradingService {
                 longNextBuyPercent = pair.buyMorePercent + correctionBuyMoreLongPercent;
               }
 
-              if (longNextBuyPercent > pair.criticalPercent) {
-                longNextBuyPercent = pair.criticalPercent;
-              }
-
               // высчитывание следующей позиции покупки лонга
               if (longNextBuyPercent) {
-                const longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
+                let longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
+                if (longNextBuyPercent > pair.criticalPercent) {
+                  longNextBuyPrice = longPosition.liquidatePrice;
+                }
                 const nextBuyLongOrder = orders?.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract && order.side === SideType.LONG_OPEN);
 
                 // // критическая просадка лонга
@@ -944,7 +943,7 @@ export class TradingService {
                   pair.nextBuyLongPriceWarning = true;
 
                   if (!pair.buyLongNotification) {
-                    message = message + `🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`;
+                    messages.push(`🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`);
                     needSendNotification = true;
                     pair.buyLongNotification = true;
                   }
@@ -972,7 +971,7 @@ export class TradingService {
                 pair.sellLongPriceWarning = true;
 
                 if (!pair.sellLongNotification && timeEnabledNotify) {
-                  message = message + `💰 [${pair.name}] [LONG] [SELL]  [${longSellPrice}] \n Необходимо проверить позицию продажи лонга за ${longSellPrice}$`;
+                  messages.push(`💰 [${pair.name}] [LONG] [SELL]  [${longSellPrice}] \n Необходимо проверить позицию продажи лонга за ${longSellPrice}$`);
                   needSendNotification = true;
                   pair.sellLongNotification = true;
                 }
@@ -983,7 +982,7 @@ export class TradingService {
               pair.sellLongPrice = longSellPrice;
             } else {
               if (!pair.buyLongNotification) {
-                message = message + `🚨 [${pair.name}] [LONG] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию лонга`;
+                messages.push(`🚨 [${pair.name}] [LONG] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию лонга`);
                 needSendNotification = true;
                 pair.buyLongNotification = true;
                 pair.nextBuyLongPriceWarning = true;
@@ -1012,13 +1011,12 @@ export class TradingService {
                 shortNextBuyPercent = pair.buyMorePercent + correctionBuyMoreShortPercent;
               }
 
-              if (shortNextBuyPercent > pair.criticalPercent) {
-                shortNextBuyPercent = pair.criticalPercent;
-              }
-
               // высчитывание следующей позиции покупки шорта
               if (shortNextBuyPercent) {
-                const shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
+                let shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
+                if (shortNextBuyPercent > pair.criticalPercent) {
+                  shortNextBuyPrice = shortPosition.liquidatePrice;
+                }
                 const nextBuyShortOrder = orders?.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract && order.side === SideType.SHORT_OPEN);
 
                 // // критическая просадка шорта
@@ -1035,7 +1033,7 @@ export class TradingService {
                   pair.nextBuyShortPriceWarning = true;
 
                   if (!pair.buyShortNotification) {
-                    message = message + `🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`;
+                    messages.push(`🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`);
                     needSendNotification = true;
                     pair.buyShortNotification = true;
                   }
@@ -1063,7 +1061,7 @@ export class TradingService {
                 pair.sellShortPriceWarning = true;
 
                 if (!pair.sellShortNotification && timeEnabledNotify) {
-                  message = message + `💰 [${pair.name}] [SHORT] [SELL]  [${shortSellPrice}] \n Необходимо проверить позицию продажи шорта за ${shortSellPrice}$`;
+                  messages.push(`💰 [${pair.name}] [SHORT] [SELL]  [${shortSellPrice}] \n Необходимо проверить позицию продажи шорта за ${shortSellPrice}$`);
                   needSendNotification = true;
                   pair.sellShortNotification = true;
                 }
@@ -1074,7 +1072,7 @@ export class TradingService {
               pair.sellShortPrice = shortSellPrice;
             } else {
               if (!pair.buyShortNotification) {
-                message = message + `🚨 [${pair.name}] [SHORT] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию шорта`;
+                messages.push(`🚨 [${pair.name}] [SHORT] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию шорта`);
                 needSendNotification = true;
                 pair.buyShortNotification = true;
                 pair.nextBuyShortPriceWarning = true;
@@ -1097,17 +1095,11 @@ export class TradingService {
             }
 
             await this.pairService.update(pair._id, pair);
-
-            if (needAlarmNotification && message && pair.sendNotification && (this.isWorkingTime() || this.sendNightStat)) {
-              await this.telegramService.sendMessage(message);
-              needAlarmNotification = false;
-            }
-
-            if (needSendNotification && message && pair.sendNotification && (this.isWorkingTime() || this.sendNightStat)) {
-              await this.telegramService.sendMessage(message);
-              needSendNotification = false;
-            }
           }
+        }
+
+        if (needSendNotification && messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
+          await this.telegramService.sendMessage(messages.join('\n\n'));
         }
 
         if (this.clearNotificationsCount === 30) {
