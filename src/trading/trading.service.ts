@@ -896,7 +896,7 @@ export class TradingService {
             pair.shortPrice = shortPosition?.holdAvgPrice || 0;
             pair.shortMargin = shortPosition?.oim || 0;
 
-
+            const marginLimit = pair.marginLimit; // максимальная маржа
             const longPercent = getPercent(pairCurrentPrice, pair.longPrice) || 0;
             const shortPercent = getPercent(pairCurrentPrice, pair.shortPrice, true) || 0;
 
@@ -908,8 +908,18 @@ export class TradingService {
               const correctionBuyMoreLongPercent = Math.floor(pair.longMargin / pair.marginStep) * buyMoreCoefficient;
               const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * buyCoefficient;
 
-              const canBuyMore = pair.longMargin + pair.marginDifference < pair.shortMargin;
-              let longNextBuyPercent = pair.buyPercent + correctionBuyLongPercent;
+              let longNextBuyPercent = 0;
+
+              const canBuy = pair.longMargin < marginLimit;
+              const canBuyMore = pair.longMargin + pair.marginDifference < pair.shortMargin && canBuy;
+
+              if (canBuy) {
+                longNextBuyPercent = pair.buyPercent + correctionBuyLongPercent;
+              }
+
+              if (canBuyMore) {
+                longNextBuyPercent = pair.buyMorePercent + correctionBuyMoreLongPercent;
+              }
 
               if (canBuyMore) {
                 longNextBuyPercent = pair.buyMorePercent + correctionBuyMoreLongPercent;
@@ -992,8 +1002,14 @@ export class TradingService {
               const correctionBuyMoreShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * buyMoreCoefficient;
               const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * buyCoefficient;
 
-              const canBuyMore = pair.shortMargin + pair.marginDifference < pair.longMargin;
-              let shortNextBuyPercent = pair.buyPercent + correctionBuyShortPercent;
+              let shortNextBuyPercent = 0;
+
+              const canBuy = pair.shortMargin < marginLimit;
+              const canBuyMore = pair.shortMargin + pair.marginDifference < pair.longMargin && canBuy;
+
+              if (canBuy) {
+                shortNextBuyPercent = pair.buyPercent + correctionBuyShortPercent;
+              }
 
               if (canBuyMore) {
                 shortNextBuyPercent = pair.buyMorePercent + correctionBuyMoreShortPercent;
