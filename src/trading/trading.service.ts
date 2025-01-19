@@ -870,7 +870,7 @@ export class TradingService {
         const positions = await this.mxcService.getPositions();
         await this.waiting();
         const orders = await this.mxcService.getOrders();
-        const messages = [];
+        let messages = [];
         let needSendNotification = false;
 
         if (positions?.success && positions?.data?.length > 0 && orders?.data?.length > 0) {
@@ -948,7 +948,7 @@ export class TradingService {
                     pair.buyLongNotification = true;
                   }
                 } else {
-                  pair.nextBuyLongPriceWarning = false;
+                  pair.nextBuyLongPriceWarning = true;
                 }
 
                 if (pair.nextBuyLongPrice !== longNextBuyPrice) needClearNotification = true;
@@ -1038,7 +1038,7 @@ export class TradingService {
                     pair.buyShortNotification = true;
                   }
                 } else {
-                  pair.nextBuyShortPriceWarning = false;
+                  pair.nextBuyShortPriceWarning = true;
                 }
 
                 if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = true;
@@ -1100,6 +1100,7 @@ export class TradingService {
 
         if (needSendNotification && messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
           await this.telegramService.sendMessage(messages.join('\n\n'));
+          messages = []
         }
 
         if (this.clearNotificationsCount === 30) {
