@@ -111,7 +111,7 @@ export class CronService {
     }
   }
 
-  @Cron('*/5 * * * * *')
+  @Cron('*/10 * * * * *')
   async pairsCronMonitoring() {
     try {
       await this.tradingService.monitorPairs();

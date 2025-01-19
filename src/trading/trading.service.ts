@@ -879,7 +879,7 @@ export class TradingService {
 
             let needClearNotification = false;
             const buyMoreCoefficient = 1;
-            const buyCoefficient = 0.25;
+            const buyCoefficient = 1;
             const timeEnabledNotify = false;
 
             const pairCurrentPrice = + await this.mxcService.getContractFairPrice(pair.contract);
