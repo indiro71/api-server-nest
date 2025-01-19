@@ -947,6 +947,8 @@ export class TradingService {
                     needSendNotification = true;
                     pair.buyLongNotification = true;
                   }
+                } else {
+                  pair.nextBuyLongPriceWarning = false;
                 }
 
                 if (pair.nextBuyLongPrice !== longNextBuyPrice) needClearNotification = true;
@@ -1035,6 +1037,8 @@ export class TradingService {
                     needSendNotification = true;
                     pair.buyShortNotification = true;
                   }
+                } else {
+                  pair.nextBuyShortPriceWarning = false;
                 }
 
                 if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = true;
