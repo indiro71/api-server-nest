@@ -924,9 +924,12 @@ export class TradingService {
               // высчитывание следующей позиции покупки лонга
               if (longNextBuyPercent) {
                 let longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
-                if (longNextBuyPercent > pair.criticalPercent) {
-                  longNextBuyPrice = longPosition.liquidatePrice;
+                if (longNextBuyPercent > pair.criticalPercent && !longPosition.autoAddIm) {
+                  messages.push(`🚨 [${pair.name}] [LONG] [AUTOBUY] \n Необходимо включить автодобавление маржи лонга`);
+                  needSendNotification = true;
+                  //longNextBuyPrice = longPosition.liquidatePrice;
                 }
+
                 const nextBuyLongOrder = orders?.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract && order.side === SideType.LONG_OPEN);
 
                 // // критическая просадка лонга
@@ -1014,8 +1017,10 @@ export class TradingService {
               // высчитывание следующей позиции покупки шорта
               if (shortNextBuyPercent) {
                 let shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
-                if (shortNextBuyPercent > pair.criticalPercent) {
-                  shortNextBuyPrice = shortPosition.liquidatePrice;
+                if (shortNextBuyPercent > pair.criticalPercent && !shortPosition.autoAddIm) {
+                  messages.push(`🚨 [${pair.name}] [SHORT] [AUTOBUY] \n Необходимо включить автодобавление маржи шорта`);
+                  needSendNotification = true;
+                  // shortNextBuyPrice = shortPosition.liquidatePrice;
                 }
                 const nextBuyShortOrder = orders?.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract && order.side === SideType.SHORT_OPEN);
 
