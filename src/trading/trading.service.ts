@@ -939,7 +939,7 @@ export class TradingService {
                 // }
 
                 // какая-то проблема со следующим ордером
-                if ((pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) && longNextBuyPercent !== pair.criticalPercent) {
+                if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
                   pair.nextBuyLongPriceWarning = true;
 
                   if (!pair.buyLongNotification) {
@@ -947,8 +947,6 @@ export class TradingService {
                     needSendNotification = true;
                     pair.buyLongNotification = true;
                   }
-                } else {
-                  pair.nextBuyLongPriceWarning = true;
                 }
 
                 if (pair.nextBuyLongPrice !== longNextBuyPrice) needClearNotification = true;
@@ -1029,7 +1027,7 @@ export class TradingService {
                 // }
 
                 // какая-то проблема со следующим ордером
-                if ((pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) && shortNextBuyPercent !== pair.criticalPercent) {
+                if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
                   pair.nextBuyShortPriceWarning = true;
 
                   if (!pair.buyShortNotification) {
@@ -1037,8 +1035,6 @@ export class TradingService {
                     needSendNotification = true;
                     pair.buyShortNotification = true;
                   }
-                } else {
-                  pair.nextBuyShortPriceWarning = true;
                 }
 
                 if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = true;
