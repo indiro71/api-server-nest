@@ -887,7 +887,7 @@ export class TradingService {
 
             if (longPosition) {
               //check long
-              const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * pair.buyCoefficient;
+              const correctionBuyLongPercent = Math.ceil(pair.longMargin / pair.marginStep) * pair.buyCoefficient;
 
               let longNextBuyPercent = 0;
 
@@ -951,7 +951,7 @@ export class TradingService {
 
             if (shortPosition) {
               //check short
-              const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * pair.buyCoefficient;
+              const correctionBuyShortPercent = Math.ceil(pair.shortMargin / pair.marginStep) * pair.buyCoefficient;
 
               let shortNextBuyPercent = 0;
 
