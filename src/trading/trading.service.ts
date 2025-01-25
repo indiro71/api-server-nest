@@ -894,7 +894,7 @@ export class TradingService {
               const canBuy = pair.longMargin < marginLimit;
 
               if (canBuy) {
-                longNextBuyPercent = correctionBuyLongPercent;
+                longNextBuyPercent = correctionBuyLongPercent || pair.buyCoefficient;
               }
 
               // высчитывание следующей позиции покупки лонга
@@ -956,10 +956,9 @@ export class TradingService {
               let shortNextBuyPercent = 0;
 
               const canBuy = pair.shortMargin < marginLimit;
-              const canBuyMore = pair.shortMargin + pair.marginDifference < pair.longMargin && canBuy;
 
               if (canBuy) {
-                shortNextBuyPercent = correctionBuyShortPercent;
+                shortNextBuyPercent = correctionBuyShortPercent || pair.buyCoefficient;
               }
 
               // высчитывание следующей позиции покупки шорта
