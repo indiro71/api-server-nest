@@ -168,7 +168,6 @@ export class TradingService {
   private checkCount: number;
   private bookCount: number;
   private autoBuyCount: number;
-  private clearNotificationsCount: number;
   private dailyProfit: Record<string, number>;
   private dailyTransactions: Record<string, number>;
   private initialStats: Record<string, CurrencyStat>;
@@ -188,7 +187,6 @@ export class TradingService {
     this.checkCount = 0;
     this.bookCount = 0;
     this.autoBuyCount = 0;
-    this.clearNotificationsCount = 0;
     this.dailyProfit = {...profit};
     this.dailyTransactions = {...transactions};
     this.initialStats = {...inStats};
@@ -861,64 +859,42 @@ export class TradingService {
     try {
       const pairs = await this.pairService.getAll();
 
-      const getPercent = (currentPrice, savingPrice, isShort?: boolean) => {
-        const percent = currentPrice / savingPrice * 100 - 100;
-        return isShort ? -percent : percent;
-      };
-
       if (pairs?.length > 0 && !this.isTraded) {
         const positions = await this.mxcService.getPositions();
         await this.waiting();
         const orders = await this.mxcService.getOrders();
-        let messages = [];
-        let needSendNotification = false;
+        const messages = [];
 
         if (positions?.success && positions?.data?.length > 0 && orders?.data?.length > 0) {
           for (const pair of pairs) {
             if (!pair.isActive) continue;
 
             let needClearNotification = false;
-            const buyMoreCoefficient = 1;
-            const buyCoefficient = 1;
-            const timeEnabledNotify = false;
-
             const pairCurrentPrice = + await this.mxcService.getContractFairPrice(pair.contract);
             const longPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
             const shortPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
             const pairOrders = orders?.data?.filter(order => order.symbol === pair.contract)?.length;
-            pair.ordersCount = pairOrders;
+            const marginLimit = pair.marginLimit; // максимальная маржа
 
-            // if (pair.longPrice !== longPosition?.holdAvgPrice || pair.longMargin !== longPosition?.oim) needClearNotification = true;
+            pair.currentPrice = pairCurrentPrice;
+            pair.ordersCount = pairOrders;
             pair.longPrice = longPosition?.holdAvgPrice || 0;
             pair.longMargin = longPosition?.oim || 0;
-
-            // if (pair.shortPrice !== shortPosition?.holdAvgPrice || pair.shortMargin !== shortPosition?.oim) needClearNotification = true;
+            pair.longAllMargin = longPosition?.im || 0;
             pair.shortPrice = shortPosition?.holdAvgPrice || 0;
             pair.shortMargin = shortPosition?.oim || 0;
-
-            const marginLimit = pair.marginLimit; // максимальная маржа
-            const longPercent = getPercent(pairCurrentPrice, pair.longPrice) || 0;
-            const shortPercent = getPercent(pairCurrentPrice, pair.shortPrice, true) || 0;
+            pair.shortAllMargin = shortPosition?.im || 0;
 
             if (longPosition) {
               //check long
-              const longAbsolutePercent = Math.abs(longPercent);
-              const longLeveragePercent = Math.round(longAbsolutePercent * pair.leverage);
-
-              const correctionBuyMoreLongPercent = Math.floor(pair.longMargin / pair.marginStep) * buyMoreCoefficient;
-              const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * buyCoefficient;
+              const correctionBuyLongPercent = Math.floor(pair.longMargin / pair.marginStep) * pair.buyCoefficient;
 
               let longNextBuyPercent = 0;
 
               const canBuy = pair.longMargin < marginLimit;
-              const canBuyMore = pair.longMargin + pair.marginDifference < pair.shortMargin && canBuy;
 
               if (canBuy) {
-                longNextBuyPercent = pair.buyPercent + correctionBuyLongPercent;
-              }
-
-              if (canBuyMore) {
-                longNextBuyPercent = pair.buyMorePercent + correctionBuyMoreLongPercent;
+                longNextBuyPercent = correctionBuyLongPercent;
               }
 
               // высчитывание следующей позиции покупки лонга
@@ -926,29 +902,16 @@ export class TradingService {
                 let longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
                 if (longNextBuyPercent > pair.criticalPercent && !longPosition.autoAddIm) {
                   messages.push(`🚨 [${pair.name}] [LONG] [AUTOBUY] \n Необходимо включить автодобавление маржи лонга`);
-                  needSendNotification = true;
-                  //longNextBuyPrice = longPosition.liquidatePrice;
                 }
 
                 const nextBuyLongOrder = orders?.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract && order.side === SideType.LONG_OPEN);
 
-                // // критическая просадка лонга
-                // if (longAbsolutePercent > pair.alarmPercent &&  !nextBuyLongOrder) {
-                //   if (!pair.alarmLongNotification) {
-                //     message = message + `🚨🚨🚨 [${pair.name}] [LONG] [BUY] [${pair.marginStep}] \n Критическая просадка лонга ${pair.name} на ${longLeveragePercent}%. \n Необходимо срочно выставить позицию лонга.`;
-                //     needAlarmNotification = true;
-                //     pair.alarmLongNotification = true;
-                //   }
-                // }
-
                 // какая-то проблема со следующим ордером
                 if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
                   pair.nextBuyLongPriceWarning = true;
-
-                  if (!pair.buyLongNotification) {
+                  if (!pair.notificationSending) {
                     messages.push(`🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`);
-                    needSendNotification = true;
-                    pair.buyLongNotification = true;
+                    pair.notificationSending = true;
                   }
                 } else {
                   pair.nextBuyLongPriceWarning = false;
@@ -972,34 +935,23 @@ export class TradingService {
               // какая-то проблема с ордером продажи
               if (pair.sellLongPrice !== longSellPrice || !longSellOrder) {
                 pair.sellLongPriceWarning = true;
-
-                if (!pair.sellLongNotification && timeEnabledNotify) {
-                  messages.push(`💰 [${pair.name}] [LONG] [SELL]  [${longSellPrice}] \n Необходимо проверить позицию продажи лонга за ${longSellPrice}$`);
-                  needSendNotification = true;
-                  pair.sellLongNotification = true;
-                }
               } else {
                 pair.sellLongPriceWarning = false;
               }
 
               pair.sellLongPrice = longSellPrice;
             } else {
-              if (!pair.buyLongNotification) {
+              if (!pair.notificationSending) {
                 messages.push(`🚨 [${pair.name}] [LONG] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию лонга`);
-                needSendNotification = true;
-                pair.buyLongNotification = true;
-                pair.nextBuyLongPriceWarning = true;
-                pair.nextBuyLongPrice = 0;
+                pair.notificationSending = true;
               }
+              pair.nextBuyLongPriceWarning = true;
+              pair.nextBuyLongPrice = 0;
             }
 
             if (shortPosition) {
               //check short
-              const shortAbsolutePercent = Math.abs(shortPercent);
-              const shortLeveragePercent = Math.round(shortAbsolutePercent * pair.leverage);
-
-              const correctionBuyMoreShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * buyMoreCoefficient;
-              const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * buyCoefficient;
+              const correctionBuyShortPercent = Math.floor(pair.shortMargin / pair.marginStep) * pair.buyCoefficient;
 
               let shortNextBuyPercent = 0;
 
@@ -1007,11 +959,7 @@ export class TradingService {
               const canBuyMore = pair.shortMargin + pair.marginDifference < pair.longMargin && canBuy;
 
               if (canBuy) {
-                shortNextBuyPercent = pair.buyPercent + correctionBuyShortPercent;
-              }
-
-              if (canBuyMore) {
-                shortNextBuyPercent = pair.buyMorePercent + correctionBuyMoreShortPercent;
+                shortNextBuyPercent = correctionBuyShortPercent;
               }
 
               // высчитывание следующей позиции покупки шорта
@@ -1019,28 +967,15 @@ export class TradingService {
                 let shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
                 if (shortNextBuyPercent > pair.criticalPercent && !shortPosition.autoAddIm) {
                   messages.push(`🚨 [${pair.name}] [SHORT] [AUTOBUY] \n Необходимо включить автодобавление маржи шорта`);
-                  needSendNotification = true;
-                  // shortNextBuyPrice = shortPosition.liquidatePrice;
                 }
                 const nextBuyShortOrder = orders?.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract && order.side === SideType.SHORT_OPEN);
-
-                // // критическая просадка шорта
-                // if (shortAbsolutePercent > pair.alarmPercent  && !nextBuyShortOrder) {
-                //   if (!pair.alarmShortNotification) {
-                //     message = message + `🚨🚨🚨 [${pair.name}] [SHORT] [BUY] [${pair.marginStep}] \n Критическая просадка шорта ${pair.name} на ${shortLeveragePercent}%. \n Необходимо срочно выставить позицию шорта.`;
-                //     needAlarmNotification = true;
-                //     pair.alarmShortNotification = true;
-                //   }
-                // }
 
                 // какая-то проблема со следующим ордером
                 if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
                   pair.nextBuyShortPriceWarning = true;
-
-                  if (!pair.buyShortNotification) {
+                  if (!pair.notificationSending) {
                     messages.push(`🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`);
-                    needSendNotification = true;
-                    pair.buyShortNotification = true;
+                    pair.notificationSending = true;
                   }
                 } else {
                   pair.nextBuyShortPriceWarning = false;
@@ -1064,54 +999,30 @@ export class TradingService {
               // какая-то проблема с ордером продажи
               if (pair.sellShortPrice !== shortSellPrice || !shortSellOrder) {
                 pair.sellShortPriceWarning = true;
-
-                if (!pair.sellShortNotification && timeEnabledNotify) {
-                  messages.push(`💰 [${pair.name}] [SHORT] [SELL]  [${shortSellPrice}] \n Необходимо проверить позицию продажи шорта за ${shortSellPrice}$`);
-                  needSendNotification = true;
-                  pair.sellShortNotification = true;
-                }
               } else {
                 pair.sellShortPriceWarning = false;
               }
 
               pair.sellShortPrice = shortSellPrice;
             } else {
-              if (!pair.buyShortNotification) {
+              if (!pair.notificationSending) {
                 messages.push(`🚨 [${pair.name}] [SHORT] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию шорта`);
-                needSendNotification = true;
-                pair.buyShortNotification = true;
-                pair.nextBuyShortPriceWarning = true;
-                pair.nextBuyShortPrice = 0;
+                pair.notificationSending = true;
               }
+              pair.nextBuyShortPriceWarning = true;
+              pair.nextBuyShortPrice = 0;
             }
 
-            pair.currentPrice = pairCurrentPrice;
-
-            if (needClearNotification) { // || this.clearNotificationsCount === 100
-              pair.sellLongNotification = false;
-              pair.buyMoreLongNotification = false;
-              pair.buyLongNotification = false;
-              pair.alarmLongNotification = false;
-
-              pair.sellShortNotification = false;
-              pair.buyMoreShortNotification = false;
-              pair.buyShortNotification = false;
-              pair.alarmShortNotification = false;
+            if (needClearNotification) {
+              pair.notificationSending = false;
             }
 
             await this.pairService.update(pair._id, pair);
           }
         }
 
-        if (needSendNotification && messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
+        if (messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
           await this.telegramService.sendMessage(messages.join('\n\n'));
-          messages = []
-        }
-
-        if (this.clearNotificationsCount === 30) {
-          this.clearNotificationsCount = 0;
-        } else {
-          this.clearNotificationsCount = this.clearNotificationsCount + 1;
         }
       }
     } catch (e) {

@@ -32,9 +32,9 @@ export class Pair {
   })
   leverage: number;
 
-  @ApiProperty({ example: 1000, description: 'Margin Limit' })
+  @ApiProperty({ example: 400, description: 'Margin Limit' })
   @Prop({
-    default: 1000,
+    default: 400,
   })
   marginLimit: number;
 
@@ -56,17 +56,17 @@ export class Pair {
   })
   currentPrice: number;
 
-  @ApiProperty({ example: 3, description: 'Sell percent' })
+  @ApiProperty({ example: 2, description: 'Sell percent' })
   @Prop({
-    default: 3,
+    default: 2,
   })
   sellPercent: number;
 
-  @ApiProperty({ example: 6, description: 'Buy percent' })
+  @ApiProperty({ example: 1.2, description: 'Buy Coefficient' })
   @Prop({
-    default: 8,
+    default: 1.2,
   })
-  buyPercent: number;
+  buyCoefficient: number;
 
   @ApiProperty({ example: 6, description: 'Alarm percent' })
   @Prop({
@@ -79,12 +79,6 @@ export class Pair {
     default: 9.5,
   })
   criticalPercent: number;
-
-  @ApiProperty({ example: 2, description: 'Buy more percent' })
-  @Prop({
-    default: 3,
-  })
-  buyMorePercent: number;
 
   @ApiProperty({ example: 100, description: 'Trade profit' })
   @Prop({
@@ -110,6 +104,12 @@ export class Pair {
   })
   longMargin: number;
 
+  @ApiProperty({ example: 100, description: 'Long All margin' })
+  @Prop({
+    default: 20,
+  })
+  longAllMargin: number;
+
   @ApiProperty({ example: 100, description: 'Short price' })
   @Prop({
     default: 0.1,
@@ -121,6 +121,12 @@ export class Pair {
     default: 20,
   })
   shortMargin: number;
+
+  @ApiProperty({ example: 100, description: 'Short All margin' })
+  @Prop({
+    default: 20,
+  })
+  shortAllMargin: number;
 
   @ApiProperty({
     example: '1624216164414',
@@ -156,53 +162,11 @@ export class Pair {
   })
   sendNotification: boolean;
 
-  @ApiProperty({ example: false, description: 'Buy Long Notification is sending' })
+  @ApiProperty({ example: false, description: 'Notification is sending' })
   @Prop({
     default: false,
   })
-  buyLongNotification: boolean;
-
-  @ApiProperty({ example: false, description: 'Alarm Long Notification is sending' })
-  @Prop({
-    default: false,
-  })
-  alarmLongNotification: boolean;
-
-  @ApiProperty({ example: false, description: 'Buy More Long Notification is sending' })
-  @Prop({
-    default: false,
-  })
-  buyMoreLongNotification: boolean;
-
-  @ApiProperty({ example: false, description: 'Sell Long Notification is sending' })
-  @Prop({
-    default: false,
-  })
-  sellLongNotification: boolean;
-
-  @ApiProperty({ example: false, description: 'Buy Short Notification is sending' })
-  @Prop({
-    default: false,
-  })
-  buyShortNotification: boolean;
-
-  @ApiProperty({ example: false, description: 'Alarm Short Notification is sending' })
-  @Prop({
-    default: false,
-  })
-  alarmShortNotification: boolean;
-
-  @ApiProperty({ example: false, description: 'Buy More Short Notification is sending' })
-  @Prop({
-    default: false,
-  })
-  buyMoreShortNotification: boolean;
-
-  @ApiProperty({ example: false, description: 'Sell Short Notification is sending' })
-  @Prop({
-    default: false,
-  })
-  sellShortNotification: boolean;
+  notificationSending: boolean;
 
   @ApiProperty({ example: 2, description: 'Round' })
   @Prop({
