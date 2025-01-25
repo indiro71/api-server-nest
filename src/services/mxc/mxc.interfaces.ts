@@ -26,6 +26,7 @@ export interface IOpenedPosition {
   closeAvgPrice: number;
   liquidatePrice: number;
   oim: number; // маржа
+  im: number; // суммарная маржа
   leverage: number; // плечо
   autoAddIm: boolean; // автопродление
   createTime: Date;
