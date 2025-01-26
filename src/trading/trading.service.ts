@@ -461,6 +461,12 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/setnewquantity (.+)/, async (msg, match) => {
       await this.setQuantity(match[1], true);
     });
+    await this.telegramService.bot.onText(/\/setbc (.+)/, async (msg, match) => {
+      await this.setBuyCoefficient(match[1]);
+    });
+    await this.telegramService.bot.onText(/\/setsp (.+)/, async (msg, match) => {
+      await this.setSellPercent(match[1]);
+    });
     await this.telegramService.bot.onText(/\/setstrategy (.+)/, async (msg, match) => {
       await this.setStrategy(match[1]);
     });
@@ -480,6 +486,36 @@ export class TradingService {
       } catch (e) {
         await this.telegramService.sendMessage(`Ошибка изменения последней цены`);
       }
+    }
+  }
+
+  async setBuyCoefficient(newValue: string) {
+    try {
+      const pairs = await this.pairService.getAll();
+
+      for (const pair of pairs) {
+        pair.buyCoefficient = +newValue;
+
+        await this.pairService.update(pair._id, pair);
+      }
+      await this.telegramService.sendMessage(`Значение коэффициента покупки изменено на ${+newValue}`);
+    } catch (e) {
+      await this.telegramService.sendMessage(`Ошибка изменения коэффициента покупки`);
+    }
+  }
+
+  async setSellPercent(newValue: string) {
+    try {
+      const pairs = await this.pairService.getAll();
+
+      for (const pair of pairs) {
+        pair.sellPercent = +newValue;
+
+        await this.pairService.update(pair._id, pair);
+      }
+      await this.telegramService.sendMessage(`Значение процента продажи изменено на ${+newValue}`);
+    } catch (e) {
+      await this.telegramService.sendMessage(`Ошибка изменения процента продажи`);
     }
   }
 
@@ -852,7 +888,7 @@ export class TradingService {
     const now = new Date();
     const hours = now.getHours();
 
-    return !(hours >= 1 && hours < 9);
+    return !(hours >= 0 && hours < 9);
   }
 
   async monitorPairs() {
