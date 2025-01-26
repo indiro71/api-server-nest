@@ -909,9 +909,9 @@ export class TradingService {
                 // какая-то проблема со следующим ордером
                 if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
                   pair.nextBuyLongPriceWarning = true;
-                  if (!pair.notificationSending) {
+                  if (!pair.buyNotificationSending) {
                     messages.push(`🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`);
-                    pair.notificationSending = true;
+                    pair.buyNotificationSending = true;
                   }
                 } else {
                   pair.nextBuyLongPriceWarning = false;
@@ -939,11 +939,17 @@ export class TradingService {
                 pair.sellLongPriceWarning = false;
               }
 
+              // уведомление о продаже лонга
+              if (pair.currentPrice > longSellPrice && !pair.sellNotificationSending && !longSellOrder) {
+                messages.push(`💰 [${pair.name}] [LONG] [SELL] \n Можно продать лонг по цене ${pair.currentPrice}$`);
+                pair.sellNotificationSending = true;
+              }
+
               pair.sellLongPrice = longSellPrice;
             } else {
-              if (!pair.notificationSending) {
+              if (!pair.buyNotificationSending) {
                 messages.push(`🚨 [${pair.name}] [LONG] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию лонга`);
-                pair.notificationSending = true;
+                pair.buyNotificationSending = true;
               }
               pair.nextBuyLongPriceWarning = true;
               pair.nextBuyLongPrice = 0;
@@ -972,9 +978,9 @@ export class TradingService {
                 // какая-то проблема со следующим ордером
                 if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
                   pair.nextBuyShortPriceWarning = true;
-                  if (!pair.notificationSending) {
+                  if (!pair.buyNotificationSending) {
                     messages.push(`🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`);
-                    pair.notificationSending = true;
+                    pair.buyNotificationSending = true;
                   }
                 } else {
                   pair.nextBuyShortPriceWarning = false;
@@ -1002,18 +1008,25 @@ export class TradingService {
                 pair.sellShortPriceWarning = false;
               }
 
+              // уведомление о продаже шорта
+              if (pair.currentPrice < shortSellPrice && !pair.sellNotificationSending && !shortSellOrder) {
+                messages.push(`💰 [${pair.name}] [SHORT] [SELL] \n Можно продать шорт по цене ${pair.currentPrice}$`);
+                pair.sellNotificationSending = true;
+              }
+
               pair.sellShortPrice = shortSellPrice;
             } else {
-              if (!pair.notificationSending) {
+              if (!pair.buyNotificationSending) {
                 messages.push(`🚨 [${pair.name}] [SHORT] [BUY] [MORE]  \n Необходимо проверить следующую выставленную позицию шорта`);
-                pair.notificationSending = true;
+                pair.buyNotificationSending = true;
               }
               pair.nextBuyShortPriceWarning = true;
               pair.nextBuyShortPrice = 0;
             }
 
             if (needClearNotification) {
-              pair.notificationSending = false;
+              pair.buyNotificationSending = false;
+              pair.sellNotificationSending = false;
             }
 
             await this.pairService.update(pair._id, pair);
