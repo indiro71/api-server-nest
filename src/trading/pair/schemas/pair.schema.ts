@@ -162,11 +162,17 @@ export class Pair {
   })
   sendNotification: boolean;
 
-  @ApiProperty({ example: false, description: 'Notification is sending' })
+  @ApiProperty({ example: false, description: 'Buy Notification is sending' })
   @Prop({
     default: false,
   })
-  notificationSending: boolean;
+  buyNotificationSending: boolean;
+
+  @ApiProperty({ example: false, description: 'Sell Notification is sending' })
+  @Prop({
+    default: false,
+  })
+  sellNotificationSending: boolean;
 
   @ApiProperty({ example: 2, description: 'Round' })
   @Prop({
