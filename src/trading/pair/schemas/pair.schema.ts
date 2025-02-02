@@ -32,17 +32,29 @@ export class Pair {
   })
   leverage: number;
 
-  @ApiProperty({ example: 400, description: 'Margin Limit' })
+  @ApiProperty({ example: 500, description: 'Long Margin Limit' })
+  @Prop({
+    default: 500,
+  })
+  longMarginLimit: number;
+
+  @ApiProperty({ example: 400, description: 'Short Margin Limit' })
   @Prop({
     default: 400,
   })
-  marginLimit: number;
+  shortMarginLimit: number;
 
-  @ApiProperty({ example: 20, description: 'Margin Step' })
+  @ApiProperty({ example: 20, description: 'Long Margin Step' })
   @Prop({
     default: 20,
   })
-  marginStep: number;
+  longMarginStep: number;
+
+  @ApiProperty({ example: 10, description: 'Short Margin Step' })
+  @Prop({
+    default: 10,
+  })
+  shortMarginStep: number;
 
   @ApiProperty({ example: 10, description: 'Margin Difference' })
   @Prop({
