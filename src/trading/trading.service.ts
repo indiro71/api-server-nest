@@ -910,7 +910,6 @@ export class TradingService {
             const longPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
             const shortPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
             const pairOrders = orders?.data?.filter(order => order.symbol === pair.contract)?.length;
-            const marginLimit = pair.marginLimit; // максимальная маржа
 
             pair.currentPrice = pairCurrentPrice;
             pair.ordersCount = pairOrders;
@@ -921,13 +920,13 @@ export class TradingService {
             pair.shortMargin = shortPosition?.oim || 0;
             pair.shortAllMargin = shortPosition?.im || 0;
 
+            let longNextBuyPercent = 0;
+
             if (longPosition) {
               //check long
-              const correctionBuyLongPercent = Math.ceil(pair.longMargin / pair.marginStep) * pair.buyCoefficient;
+              const correctionBuyLongPercent = Math.ceil(pair.longMargin / pair.longMarginStep) * pair.buyCoefficient;
 
-              let longNextBuyPercent = 0;
-
-              const canBuy = pair.longMargin < marginLimit;
+              const canBuy = pair.longMargin < pair.longMarginLimit;
 
               if (canBuy) {
                 longNextBuyPercent = correctionBuyLongPercent || pair.buyCoefficient;
@@ -964,7 +963,7 @@ export class TradingService {
               pair.longLiquidatePrice = longPosition.liquidatePrice;
 
               //проверка позиции продажи лонга
-              const longSellPercent = pair.longMargin < pair.marginStep ? 1 : pair.sellPercent;
+              const longSellPercent = pair.longMargin < pair.longMarginStep ? 1 : pair.sellPercent;
               const longSellPrice = +(pair.longPrice + (pair.longPrice * longSellPercent) / 100).toFixed(pair.round);
               const longSellOrder = orders?.data?.find(order => order.price === longSellPrice && order.symbol === pair.contract && order.side === SideType.LONG_CLOSE);
 
@@ -993,14 +992,22 @@ export class TradingService {
 
             if (shortPosition) {
               //check short
-              const correctionBuyShortPercent = Math.ceil(pair.shortMargin / pair.marginStep) * pair.buyCoefficient;
+              const correctionBuyShortPercent = Math.ceil(pair.shortMargin / pair.shortMarginStep) * pair.buyCoefficient;
 
               let shortNextBuyPercent = 0;
 
-              const canBuy = pair.shortMargin < marginLimit;
+              const canBuy = pair.shortMargin < pair.shortMarginLimit;
 
               if (canBuy) {
                 shortNextBuyPercent = correctionBuyShortPercent || pair.buyCoefficient;
+              }
+
+              if (longNextBuyPercent > 10) {
+                shortNextBuyPercent = shortNextBuyPercent * 1.5;
+              }
+
+              if (longNextBuyPercent > 20) {
+                shortNextBuyPercent = shortNextBuyPercent * 2;
               }
 
               // высчитывание следующей позиции покупки шорта
@@ -1033,7 +1040,7 @@ export class TradingService {
               pair.shortLiquidatePrice = shortPosition.liquidatePrice;
 
               //проверка позиции продажи шорта
-              const shortSellPercent = pair.shortMargin < pair.marginStep ? 1 : pair.sellPercent;
+              const shortSellPercent = pair.shortMargin < pair.shortMarginStep ? 1 : pair.sellPercent;
               const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * shortSellPercent) / 100).toFixed(pair.round);
               const shortSellOrder = orders?.data?.find(order => order.price === shortSellPrice && order.symbol === pair.contract && order.side === SideType.SHORT_CLOSE);
 
