@@ -891,6 +891,11 @@ export class TradingService {
     return !(hours >= 0 && hours < 9);
   }
 
+  getPercent = (currentPrice, savingPrice, isShort?: boolean) => {
+    const percent = (currentPrice / savingPrice) * 100 - 100;
+    return isShort ? -percent : percent;
+  };
+
   async monitorPairs() {
     try {
       const pairs = await this.pairService.getAll();
@@ -910,6 +915,7 @@ export class TradingService {
             const longPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
             const shortPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
             const pairOrders = orders?.data?.filter(order => order.symbol === pair.contract)?.length;
+            const longPercent = this.getPercent(pair.currentPrice, pair.longPrice);
 
             pair.currentPrice = pairCurrentPrice;
             pair.ordersCount = pairOrders;
@@ -920,11 +926,11 @@ export class TradingService {
             pair.shortMargin = shortPosition?.oim || 0;
             pair.shortAllMargin = shortPosition?.im || 0;
 
-            let longNextBuyPercent = 0;
-
             if (longPosition) {
               //check long
               const correctionBuyLongPercent = Math.ceil(pair.longMargin / pair.longMarginStep) * pair.buyCoefficient;
+
+              let longNextBuyPercent = 0;
 
               const canBuy = pair.longMargin < pair.longMarginLimit;
 
@@ -1002,11 +1008,11 @@ export class TradingService {
                 shortNextBuyPercent = correctionBuyShortPercent || pair.buyCoefficient;
               }
 
-              if (longNextBuyPercent > 10) {
+              if (longPercent < -130) {
                 shortNextBuyPercent = shortNextBuyPercent * 1.5;
               }
 
-              if (longNextBuyPercent > 20) {
+              if (longPercent < -200) {
                 shortNextBuyPercent = shortNextBuyPercent * 2;
               }
 
