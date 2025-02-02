@@ -915,7 +915,7 @@ export class TradingService {
             const longPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.LONG);
             const shortPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
             const pairOrders = orders?.data?.filter(order => order.symbol === pair.contract)?.length;
-            const longPercent = this.getPercent(pair.currentPrice, pair.longPrice);
+            const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
 
             pair.currentPrice = pairCurrentPrice;
             pair.ordersCount = pairOrders;
