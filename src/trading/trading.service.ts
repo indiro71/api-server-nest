@@ -1089,7 +1089,7 @@ export class TradingService {
     } catch (e) {
       console.error(e?.message);
       // if (this.isWorkingTime()) {
-      //   await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
+        await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
       // }
     }
   }
