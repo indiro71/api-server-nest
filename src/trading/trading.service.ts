@@ -916,6 +916,9 @@ export class TradingService {
             const shortPosition = positions.data?.find(position => position.symbol === pair.contract && position.positionType === PositionType.SHORT);
             const pairOrders = orders?.data?.filter(order => order.symbol === pair.contract)?.length;
             const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
+            const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;
+            const longNewPrice = pair.longPrice !== longPosition?.holdAvgPrice;
+            const shortNewPrice = pair.shortPrice !== shortPosition?.holdAvgPrice;
 
             pair.currentPrice = pairCurrentPrice;
             pair.ordersCount = pairOrders;
@@ -938,28 +941,38 @@ export class TradingService {
                 longNextBuyPercent = correctionBuyLongPercent || pair.buyCoefficient;
               }
 
+              if (shortPercent < -130) {
+                longNextBuyPercent = longNextBuyPercent * 1.5;
+              }
+
+              if (shortPercent < -200) {
+                longNextBuyPercent = longNextBuyPercent * 2;
+              }
+
               // высчитывание следующей позиции покупки лонга
               if (longNextBuyPercent) {
-                let longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
-                if (longNextBuyPercent > pair.criticalPercent && !longPosition.autoAddIm) {
-                  messages.push(`🚨 [${pair.name}] [LONG] [AUTOBUY] \n Необходимо включить автодобавление маржи лонга`);
-                }
-
-                const nextBuyLongOrder = orders?.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract && order.side === SideType.LONG_OPEN);
-
-                // какая-то проблема со следующим ордером
-                if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
-                  pair.nextBuyLongPriceWarning = true;
-                  if (!pair.buyNotificationSending) {
-                    messages.push(`🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`);
-                    pair.buyNotificationSending = true;
+                if (longNewPrice) {
+                  let longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
+                  if (longNextBuyPercent > pair.criticalPercent && !longPosition.autoAddIm) {
+                    messages.push(`🚨 [${pair.name}] [LONG] [AUTOBUY] \n Необходимо включить автодобавление маржи лонга`);
                   }
-                } else {
-                  pair.nextBuyLongPriceWarning = false;
-                }
 
-                if (pair.nextBuyLongPrice !== longNextBuyPrice) needClearNotification = true;
-                pair.nextBuyLongPrice = longNextBuyPrice;
+                  const nextBuyLongOrder = orders?.data?.find(order => order.price === longNextBuyPrice && order.symbol === pair.contract && order.side === SideType.LONG_OPEN);
+
+                  // какая-то проблема со следующим ордером
+                  if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
+                    pair.nextBuyLongPriceWarning = true;
+                    if (!pair.buyNotificationSending) {
+                      messages.push(`🚨 [${pair.name}] [LONG] [BUY] [MORE] [${longNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию лонга за ${longNextBuyPrice}$`);
+                      pair.buyNotificationSending = true;
+                    }
+                  } else {
+                    pair.nextBuyLongPriceWarning = false;
+                  }
+
+                  if (pair.nextBuyLongPrice !== longNextBuyPrice) needClearNotification = true;
+                  pair.nextBuyLongPrice = longNextBuyPrice;
+                }
               } else {
                 pair.nextBuyLongPriceWarning = false;
                 pair.nextBuyLongPrice = 0;
@@ -1018,25 +1031,27 @@ export class TradingService {
 
               // высчитывание следующей позиции покупки шорта
               if (shortNextBuyPercent) {
-                let shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
-                if (shortNextBuyPercent > pair.criticalPercent && !shortPosition.autoAddIm) {
-                  messages.push(`🚨 [${pair.name}] [SHORT] [AUTOBUY] \n Необходимо включить автодобавление маржи шорта`);
-                }
-                const nextBuyShortOrder = orders?.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract && order.side === SideType.SHORT_OPEN);
-
-                // какая-то проблема со следующим ордером
-                if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
-                  pair.nextBuyShortPriceWarning = true;
-                  if (!pair.buyNotificationSending) {
-                    messages.push(`🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`);
-                    pair.buyNotificationSending = true;
+                if (shortNewPrice) {
+                  let shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
+                  if (shortNextBuyPercent > pair.criticalPercent && !shortPosition.autoAddIm) {
+                    messages.push(`🚨 [${pair.name}] [SHORT] [AUTOBUY] \n Необходимо включить автодобавление маржи шорта`);
                   }
-                } else {
-                  pair.nextBuyShortPriceWarning = false;
-                }
+                  const nextBuyShortOrder = orders?.data?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.contract && order.side === SideType.SHORT_OPEN);
 
-                if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = true;
-                pair.nextBuyShortPrice = shortNextBuyPrice;
+                  // какая-то проблема со следующим ордером
+                  if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
+                    pair.nextBuyShortPriceWarning = true;
+                    if (!pair.buyNotificationSending) {
+                      messages.push(`🚨 [${pair.name}] [SHORT] [BUY] [MORE] [${shortNextBuyPrice}] \n Необходимо проверить следующую выставленную позицию шорта за ${shortNextBuyPrice}$`);
+                      pair.buyNotificationSending = true;
+                    }
+                  } else {
+                    pair.nextBuyShortPriceWarning = false;
+                  }
+
+                  if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = true;
+                  pair.nextBuyShortPrice = shortNextBuyPrice;
+                }
               } else {
                 pair.nextBuyShortPriceWarning = false;
                 pair.nextBuyShortPrice = 0;
