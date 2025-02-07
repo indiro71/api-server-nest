@@ -929,6 +929,10 @@ export class TradingService {
             pair.shortMargin = shortPosition?.oim || 0;
             pair.shortAllMargin = shortPosition?.im || 0;
 
+            if (longPercent > 50 || shortPercent > 50) {
+              await this.telegramService.sendMessage('🚨 🚨 🚨 Warning by price!');
+            }
+
             if (longPosition) {
               //check long
               const correctionBuyLongPercent = Math.ceil(pair.longMargin / pair.longMarginStep) * pair.buyCoefficient;
