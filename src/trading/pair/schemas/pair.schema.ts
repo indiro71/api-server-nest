@@ -74,11 +74,17 @@ export class Pair {
   })
   sellPercent: number;
 
-  @ApiProperty({ example: 1.2, description: 'Buy Coefficient' })
+  @ApiProperty({ example: 1.2, description: 'Buy Long Coefficient' })
   @Prop({
     default: 1.2,
   })
-  buyCoefficient: number;
+  buyLongCoefficient: number;
+
+  @ApiProperty({ example: 1.2, description: 'Buy Short Coefficient' })
+  @Prop({
+    default: 1.2,
+  })
+  buyShortCoefficient: number;
 
   @ApiProperty({ example: 6, description: 'Alarm percent' })
   @Prop({
@@ -299,6 +305,18 @@ export class Pair {
     default: 1,
   })
   ordersCount: number;
+
+  @ApiProperty({ example: 30, description: 'Long percent' })
+  @Prop({
+    default: 0.1,
+  })
+  longPercent: number;
+
+  @ApiProperty({ example: 30, description: 'Short percent' })
+  @Prop({
+    default: 0.1,
+  })
+  shortPercent: number;
 }
 
 export const PairSchema = SchemaFactory.createForClass(Pair);

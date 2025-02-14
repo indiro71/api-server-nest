@@ -8,16 +8,17 @@ import { PairService } from './pair/pair.service';
 import { PositionType, SideType } from '../services/mxc/mxc.interfaces';
 
 /* tg commands---------------
+togglemonitoring - Toggle Monitoring Price
+togglenightstat - Toggle Night Notifications
 
-stat - All statistics
-togglestat - Toggle Send Sell Stat
-togglenightstat - Toggle Send Night Stat
-togglerise - Toggle Buy on rise
-buyandsell - Buy and sell order
+
 enabletrade - Enable Trade
+stat - All statistics
+buyandsell - Buy and sell order
+togglerise - Toggle Buy on rise
 disabletrade - Disable Trade
 tradestatus - Trade Status
-
+togglestat - Toggle Send Sell Stat
 sellandbuy - Sell and buy order - (5000)
 sellorder - Sell  order - (5000)
 buyorder - Buy order - (5000)
@@ -162,6 +163,7 @@ export class TradingService {
   private isTraded: boolean;
   private isMonitoring: boolean;
   private isActiveTrade: boolean;
+  private isActiveMonitoring: boolean;
   private buyOnRise: boolean;
   private sendSellStat: boolean;
   private sendNightStat: boolean;
@@ -184,6 +186,7 @@ export class TradingService {
     this.sendSellStat = false;
     this.sendNightStat = false;
     this.isActiveTrade = false;
+    this.isActiveMonitoring = true;
     this.checkCount = 0;
     this.bookCount = 0;
     this.autoBuyCount = 0;
@@ -413,6 +416,9 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/togglerise/, async () => {
       await this.toggleRise();
     });
+    await this.telegramService.bot.onText(/\/togglemonitoring/, async () => {
+      await this.toggleMonitoring();
+    });
     await this.telegramService.bot.onText(/\/togglestat/, async () => {
       await this.toggleSendSellStat();
     });
@@ -494,7 +500,8 @@ export class TradingService {
       const pairs = await this.pairService.getAll();
 
       for (const pair of pairs) {
-        pair.buyCoefficient = +newValue;
+        pair.buyLongCoefficient = +newValue;
+        pair.buyShortCoefficient = +newValue;
 
         await this.pairService.update(pair._id, pair);
       }
@@ -718,6 +725,11 @@ export class TradingService {
     await this.telegramService.sendMessage(`Покупка на возрастании ${this.buyOnRise ? 'включена' : 'отключена'}`);
   }
 
+  async toggleMonitoring() {
+    this.isActiveMonitoring = !this.isActiveMonitoring;
+    await this.telegramService.sendMessage(`Мониторинг цен ${this.isActiveMonitoring ? 'включен' : 'отключен'}`);
+  }
+
   async toggleSendSellStat() {
     this.sendSellStat = !this.sendSellStat;
     await this.telegramService.sendMessage(`Уведомления о продаже ${this.sendSellStat ? 'включены' : 'отключены'}`);
@@ -892,11 +904,14 @@ export class TradingService {
   }
 
   getPercent = (currentPrice, savingPrice, isShort?: boolean) => {
+    if (!savingPrice) return 0;
     const percent = (currentPrice / savingPrice) * 100 - 100;
     return isShort ? -percent : percent;
   };
 
   async monitorPairs() {
+    if (!this.isActiveMonitoring) return;
+
     try {
       const pairs = await this.pairService.getAll();
 
@@ -928,6 +943,8 @@ export class TradingService {
             pair.shortPrice = shortPosition?.holdAvgPrice || 0;
             pair.shortMargin = shortPosition?.oim || 0;
             pair.shortAllMargin = shortPosition?.im || 0;
+            pair.longPercent = longPercent
+            pair.shortPercent = shortPercent
 
             if (longPercent > 50 || shortPercent > 50) {
               await this.telegramService.sendMessage('🚨 🚨 🚨 Warning by price!');
@@ -935,14 +952,14 @@ export class TradingService {
 
             if (longPosition) {
               //check long
-              const correctionBuyLongPercent = Math.ceil(pair.longMargin / pair.longMarginStep) * pair.buyCoefficient;
+              const correctionBuyLongPercent = Math.ceil(pair.longMargin / pair.longMarginStep) * pair.buyLongCoefficient;
 
               let longNextBuyPercent = 0;
 
               const canBuy = pair.longMargin < pair.longMarginLimit;
 
               if (canBuy) {
-                longNextBuyPercent = correctionBuyLongPercent || pair.buyCoefficient;
+                longNextBuyPercent = correctionBuyLongPercent || pair.buyLongCoefficient;
               }
 
               // if (shortPercent < -130) {
@@ -1013,14 +1030,14 @@ export class TradingService {
 
             if (shortPosition) {
               //check short
-              const correctionBuyShortPercent = Math.ceil(pair.shortMargin / pair.shortMarginStep) * pair.buyCoefficient;
+              const correctionBuyShortPercent = Math.ceil(pair.shortMargin / pair.shortMarginStep) * pair.buyShortCoefficient;
 
               let shortNextBuyPercent = 0;
 
               const canBuy = pair.shortMargin < pair.shortMarginLimit;
 
               if (canBuy) {
-                shortNextBuyPercent = correctionBuyShortPercent || pair.buyCoefficient;
+                shortNextBuyPercent = correctionBuyShortPercent || pair.buyShortCoefficient;
               }
 
               // if (longPercent < -130) {
