@@ -34,7 +34,7 @@ export class Pair {
 
   @ApiProperty({ example: 500, description: 'Long Margin Limit' })
   @Prop({
-    default: 300,
+    default: 400,
   })
   longMarginLimit: number;
 
