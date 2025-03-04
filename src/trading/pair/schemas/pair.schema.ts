@@ -34,25 +34,25 @@ export class Pair {
 
   @ApiProperty({ example: 500, description: 'Long Margin Limit' })
   @Prop({
-    default: 500,
+    default: 400,
   })
   longMarginLimit: number;
 
   @ApiProperty({ example: 400, description: 'Short Margin Limit' })
   @Prop({
-    default: 400,
+    default: 300,
   })
   shortMarginLimit: number;
 
   @ApiProperty({ example: 20, description: 'Long Margin Step' })
   @Prop({
-    default: 20,
+    default: 10,
   })
   longMarginStep: number;
 
   @ApiProperty({ example: 10, description: 'Short Margin Step' })
   @Prop({
-    default: 10,
+    default: 5,
   })
   shortMarginStep: number;
 
@@ -70,19 +70,19 @@ export class Pair {
 
   @ApiProperty({ example: 2, description: 'Sell percent' })
   @Prop({
-    default: 2,
+    default: 1.3,
   })
   sellPercent: number;
 
   @ApiProperty({ example: 1.2, description: 'Buy Long Coefficient' })
   @Prop({
-    default: 1.2,
+    default: 1.3,
   })
   buyLongCoefficient: number;
 
   @ApiProperty({ example: 1.2, description: 'Buy Short Coefficient' })
   @Prop({
-    default: 1.2,
+    default: 1.3,
   })
   buyShortCoefficient: number;
 
