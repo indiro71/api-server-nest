@@ -952,7 +952,8 @@ export class TradingService {
 
             if (longPosition) {
               //check long
-              const correctionBuyLongPercent = Math.ceil(pair.longMargin / pair.longMarginStep) * pair.buyLongCoefficient;
+              const longMargin = pair.longMarginStep > 5 ? pair.longMargin : pair.longMargin - pair.marginDifference;
+              const correctionBuyLongPercent = Math.ceil(longMargin / pair.longMarginStep) * pair.buyLongCoefficient;
 
               let longNextBuyPercent = 0;
 
@@ -1030,7 +1031,8 @@ export class TradingService {
 
             if (shortPosition) {
               //check short
-              const correctionBuyShortPercent = Math.ceil(pair.shortMargin / pair.shortMarginStep) * pair.buyShortCoefficient;
+              const shortMargin = pair.shortMarginStep > 5 ? pair.shortMargin : pair.shortMargin - pair.marginDifference;
+              const correctionBuyShortPercent = Math.ceil(shortMargin / pair.shortMarginStep) * pair.buyShortCoefficient;
 
               let shortNextBuyPercent = 0;
 
