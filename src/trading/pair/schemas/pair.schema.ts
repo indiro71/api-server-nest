@@ -46,7 +46,7 @@ export class Pair {
 
   @ApiProperty({ example: 20, description: 'Long Margin Step' })
   @Prop({
-    default: 10,
+    default: 5,
   })
   longMarginStep: number;
 
@@ -76,7 +76,7 @@ export class Pair {
 
   @ApiProperty({ example: 1.2, description: 'Buy Long Coefficient' })
   @Prop({
-    default: 1.3,
+    default: 1,
   })
   buyLongCoefficient: number;
 
