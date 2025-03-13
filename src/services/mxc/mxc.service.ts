@@ -1,6 +1,6 @@
-import { Injectable, HttpService } from '@nestjs/common';
+import { HttpService, Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { IOrdersResponse, IPositionResponse, OpenType, SideType } from './mxc.interfaces';
+import { ChangeMarginType, IOrdersResponse, IPositionResponse, OpenType, SideType } from './mxc.interfaces';
 
 @Injectable()
 export class MxcService {
@@ -273,6 +273,42 @@ export class MxcService {
     try {
       const response = await this.httpService.post(apiUrl, { headers, params }).toPromise();
       return response.data;
+    } catch (e) {
+      console.error('error',e.response);
+    }
+  }
+
+  async changeMargin(positionId: number, type?: ChangeMarginType, amount = 50): Promise<any> {
+    const apiUrl = 'https://contract.mexc.com/api/v1/private/position/change_margin';
+    const timestamp = Date.now().toString();
+
+    const params: Record<string, any> = {
+      'positionId': positionId,
+      'amount': amount,
+      'type': type
+    };
+
+    const signatureString = this.generateSignatureString(timestamp, params);
+    const signature = this.generateSignature(signatureString);
+
+    const headers = {
+      'ApiKey': process.env.MEXC_API_KEY,
+      'Request-Time': timestamp,
+      'Signature': signature,
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      const response = await this.httpService.post(apiUrl, { headers, params }).toPromise();
+      return response.data;
+    } catch (e) {
+      console.error('error',e.response);
+    }
+  }
+
+  async addMargin(positionId: number, amount?: number): Promise<any> {
+    try {
+      await this.changeMargin(positionId, ChangeMarginType.ADD, amount);
     } catch (e) {
       console.error('error',e.response);
     }
