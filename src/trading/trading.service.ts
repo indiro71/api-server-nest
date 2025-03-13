@@ -934,6 +934,12 @@ export class TradingService {
             const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;
             const longNewPrice = pair.longPrice !== longPosition?.holdAvgPrice;
             const shortNewPrice = pair.shortPrice !== shortPosition?.holdAvgPrice;
+            const longExtensionMargin =  longPosition?.im - longPosition?.oim;
+            const shortExtensionMargin =  shortPosition?.im - shortPosition?.oim;
+            const longLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition.liquidatePrice));
+            const shortLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition.liquidatePrice, true));
+            const liquidationPercent = 97;
+            const stopBuyLimit = 30;
 
             pair.currentPrice = pairCurrentPrice;
             pair.ordersCount = pairOrders;
@@ -945,8 +951,10 @@ export class TradingService {
             pair.shortAllMargin = shortPosition?.im || 0;
             pair.longPercent = longPercent
             pair.shortPercent = shortPercent
+            pair.longLiquidatePercent = longLiquidationPercent;
+            pair.shortLiquidatePercent = shortLiquidationPercent;
 
-            if (longPercent > 50 || shortPercent > 50) {
+            if (longPercent > 40 || shortPercent > 40) {
               await this.telegramService.sendMessage('🚨 🚨 🚨 Warning by price!');
             }
 
@@ -957,19 +965,11 @@ export class TradingService {
 
               let longNextBuyPercent = 0;
 
-              const canBuy = pair.longMargin < pair.longMarginLimit;
+              const canBuy = pair.longMargin < pair.longMarginLimit && pair.shortMargin > stopBuyLimit;
 
               if (canBuy) {
                 longNextBuyPercent = correctionBuyLongPercent || pair.buyLongCoefficient;
               }
-
-              // if (shortPercent < -130) {
-              //   longNextBuyPercent = longNextBuyPercent * 1.5;
-              // }
-              //
-              // if (shortPercent < -200) {
-              //   longNextBuyPercent = longNextBuyPercent * 2;
-              // }
 
               // высчитывание следующей позиции покупки лонга
               if (longNextBuyPercent) {
@@ -997,6 +997,16 @@ export class TradingService {
                 pair.nextBuyLongPriceWarning = false;
                 pair.nextBuyLongPrice = 0;
               }
+
+              //высчитывание добавления продления маржи лонга
+              if (longLiquidationPercent > liquidationPercent) {
+                if (!pair.marginNotificationSending) {
+                  messages.push(`🚨🚨 [${pair.name}] [LONG] [MARGIN] [NEED_ADDED]`);
+                  pair.marginNotificationSending = true;
+                }
+              }
+
+              if (longPosition.liquidatePrice !== pair.longLiquidatePrice) pair.marginNotificationSending = false;
 
               pair.autoAddLongMargin = longPosition.autoAddIm;
               pair.longLiquidatePrice = longPosition.liquidatePrice;
@@ -1036,19 +1046,11 @@ export class TradingService {
 
               let shortNextBuyPercent = 0;
 
-              const canBuy = pair.shortMargin < pair.shortMarginLimit;
+              const canBuy = pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLimit;
 
               if (canBuy) {
                 shortNextBuyPercent = correctionBuyShortPercent || pair.buyShortCoefficient;
               }
-
-              // if (longPercent < -130) {
-              //   shortNextBuyPercent = shortNextBuyPercent * 1.5;
-              // }
-              //
-              // if (longPercent < -200) {
-              //   shortNextBuyPercent = shortNextBuyPercent * 2;
-              // }
 
               // высчитывание следующей позиции покупки шорта
               if (shortNextBuyPercent) {
@@ -1075,6 +1077,16 @@ export class TradingService {
                 pair.nextBuyShortPriceWarning = false;
                 pair.nextBuyShortPrice = 0;
               }
+
+              //высчитывание добавления продления маржи шорта
+              if (shortLiquidationPercent > liquidationPercent) {
+                if (!pair.marginNotificationSending) {
+                  messages.push(`🚨🚨 [${pair.name}] [SHORT] [MARGIN] [NEED_ADDED]`);
+                  pair.marginNotificationSending = true;
+                }
+              }
+
+              if (shortPosition.liquidatePrice !== pair.shortLiquidatePrice) pair.marginNotificationSending = false;
 
               pair.autoAddShortMargin = shortPosition.autoAddIm;
               pair.shortLiquidatePrice = shortPosition.liquidatePrice;

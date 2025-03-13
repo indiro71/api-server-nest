@@ -15,6 +15,11 @@ export enum OpenType {
   CROSS = 2
 }
 
+export enum ChangeMarginType {
+  ADD = 'ADD',
+  SUB = 'SUB'
+}
+
 export interface IOpenedPosition {
   positionId: number;
   symbol: string;
