@@ -192,6 +192,12 @@ export class Pair {
   })
   sellNotificationSending: boolean;
 
+  @ApiProperty({ example: false, description: 'Margin Notification is sending' })
+  @Prop({
+    default: false,
+  })
+  marginNotificationSending: boolean;
+
   @ApiProperty({ example: 2, description: 'Round' })
   @Prop({
     default: 2,
@@ -210,11 +216,23 @@ export class Pair {
   })
   longLiquidatePrice: number;
 
+  @ApiProperty({ example: 100, description: 'Long Liquidate Percent' })
+  @Prop({
+    default: 10,
+  })
+  longLiquidatePercent: number;
+
   @ApiProperty({ example: 100, description: 'Short Liquidate Price' })
   @Prop({
     default: 0.1,
   })
   shortLiquidatePrice: number;
+
+  @ApiProperty({ example: 100, description: 'Short Liquidate Percent' })
+  @Prop({
+    default: 10,
+  })
+  shortLiquidatePercent: number;
 
   @ApiProperty({ example: 100, description: 'Next Buy Short Price' })
   @Prop({
