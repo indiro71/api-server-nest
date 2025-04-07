@@ -29,6 +29,7 @@ diffstat - Different statistics
 lastvalue - Set last value
 setquantity - Set purchase quantity
 setstrategy - Set strategy new/old
+setwarningpercent - Set warning price
 
  */
 
@@ -170,6 +171,7 @@ export class TradingService {
   private checkCount: number;
   private bookCount: number;
   private autoBuyCount: number;
+  private warningPercent: number;
   private dailyProfit: Record<string, number>;
   private dailyTransactions: Record<string, number>;
   private initialStats: Record<string, CurrencyStat>;
@@ -190,6 +192,7 @@ export class TradingService {
     this.checkCount = 0;
     this.bookCount = 0;
     this.autoBuyCount = 0;
+    this.warningPercent = 50;
     this.dailyProfit = {...profit};
     this.dailyTransactions = {...transactions};
     this.initialStats = {...inStats};
@@ -452,6 +455,9 @@ export class TradingService {
     await this.telegramService.bot.onText(/\/setquantity (.+)/, async (msg, match) => {
       await this.setQuantity(match[1]);
     });
+    await this.telegramService.bot.onText(/\/setwarningpercent (.+)/, async (msg, match) => {
+      await this.setWarningPercent(match[1]);
+    });
     await this.telegramService.bot.onText(/\/sellandbuy(?: (.+))?/, async (msg, match) => {
       await this.sellAndBuy(match ? match[1] : 3000);
     });
@@ -524,6 +530,11 @@ export class TradingService {
     } catch (e) {
       await this.telegramService.sendMessage(`Ошибка изменения процента продажи`);
     }
+  }
+
+  async setWarningPercent(newValue: string) {
+    this.warningPercent = +newValue;
+    await this.telegramService.sendMessage(`Значение warningPercent изменено на ${newValue}`);
   }
 
   async setQuantity(newValue: string, isNew?: boolean) {
@@ -954,7 +965,7 @@ export class TradingService {
             pair.longLiquidatePercent = longLiquidationPercent;
             pair.shortLiquidatePercent = shortLiquidationPercent;
 
-            if (longPercent > 40 || shortPercent > 40) {
+            if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
               await this.telegramService.sendMessage('🚨 🚨 🚨 Warning by price!');
             }
 
