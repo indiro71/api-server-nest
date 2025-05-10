@@ -966,7 +966,7 @@ export class TradingService {
             pair.shortLiquidatePercent = shortLiquidationPercent;
 
             if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
-              await this.telegramService.sendMessage('🚨 🚨 🚨 Warning by price!');
+              await this.telegramService.sendMessage(`🚨 🚨 🚨 Warning ${pair.name} by price - ${longPercent > shortPercent ? longPercent : shortPercent}%`);
             }
 
             if (longPosition) {
@@ -1015,6 +1015,10 @@ export class TradingService {
                   messages.push(`🚨🚨 [${pair.name}] [LONG] [MARGIN] [NEED_ADDED]`);
                   pair.marginNotificationSending = true;
                 }
+              }
+
+              if (longLiquidationPercent > 99) {
+                await this.telegramService.sendMessage(`🚨 🚨 🚨 Warning ${pair.name} by percent - ${longLiquidationPercent}%`);
               }
 
               if (longPosition.liquidatePrice !== pair.longLiquidatePrice) pair.marginNotificationSending = false;
@@ -1095,6 +1099,10 @@ export class TradingService {
                   messages.push(`🚨🚨 [${pair.name}] [SHORT] [MARGIN] [NEED_ADDED]`);
                   pair.marginNotificationSending = true;
                 }
+              }
+
+              if (shortLiquidationPercent > 99) {
+                await this.telegramService.sendMessage(`🚨 🚨 🚨 Warning ${pair.name} by percent - ${longLiquidationPercent}%`);
               }
 
               if (shortPosition.liquidatePrice !== pair.shortLiquidatePrice) pair.marginNotificationSending = false;
