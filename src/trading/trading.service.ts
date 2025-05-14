@@ -950,7 +950,8 @@ export class TradingService {
             const longLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition.liquidatePrice));
             const shortLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition.liquidatePrice, true));
             const liquidationPercent = 97;
-            const stopBuyLimit = 30;
+            const stopBuyLongLimit = 40;
+            const stopBuyShortLimit = 30;
 
             pair.currentPrice = pairCurrentPrice;
             pair.ordersCount = pairOrders;
@@ -971,12 +972,12 @@ export class TradingService {
 
             if (longPosition) {
               //check long
-              const longMargin = pair.longMarginStep > 5 ? pair.longMargin : pair.longMargin - pair.marginDifference;
+              const longMargin = pair.longMargin - pair.marginDifference;
               const correctionBuyLongPercent = Math.ceil(longMargin / pair.longMarginStep) * pair.buyLongCoefficient;
 
               let longNextBuyPercent = 0;
 
-              const canBuy = pair.longMargin < pair.longMarginLimit && pair.shortMargin > stopBuyLimit;
+              const canBuy = pair.longMargin < pair.longMarginLimit && pair.shortMargin > stopBuyShortLimit;
 
               if (canBuy) {
                 longNextBuyPercent = correctionBuyLongPercent || pair.buyLongCoefficient;
@@ -1056,12 +1057,12 @@ export class TradingService {
 
             if (shortPosition) {
               //check short
-              const shortMargin = pair.shortMarginStep > 5 ? pair.shortMargin : pair.shortMargin - pair.marginDifference;
+              const shortMargin = pair.shortMargin - pair.marginDifference;
               const correctionBuyShortPercent = Math.ceil(shortMargin / pair.shortMarginStep) * pair.buyShortCoefficient;
 
               let shortNextBuyPercent = 0;
 
-              const canBuy = pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLimit;
+              const canBuy = pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLongLimit;
 
               if (canBuy) {
                 shortNextBuyPercent = correctionBuyShortPercent || pair.buyShortCoefficient;
