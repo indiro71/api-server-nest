@@ -952,6 +952,7 @@ export class TradingService {
             const liquidationPercent = 97;
             const stopBuyLongLimit = 40;
             const stopBuyShortLimit = 30;
+            const marginDifference = 15;
 
             pair.currentPrice = pairCurrentPrice;
             pair.ordersCount = pairOrders;
@@ -972,7 +973,7 @@ export class TradingService {
 
             if (longPosition) {
               //check long
-              const longMargin = pair.longMargin - pair.marginDifference;
+              const longMargin = pair.longMargin - marginDifference;
               const correctionBuyLongPercent = Math.ceil(longMargin / pair.longMarginStep) * pair.buyLongCoefficient;
 
               let longNextBuyPercent = 0;
@@ -1057,7 +1058,7 @@ export class TradingService {
 
             if (shortPosition) {
               //check short
-              const shortMargin = pair.shortMargin - pair.marginDifference;
+              const shortMargin = pair.shortMargin - marginDifference;
               const correctionBuyShortPercent = Math.ceil(shortMargin / pair.shortMarginStep) * pair.buyShortCoefficient;
 
               let shortNextBuyPercent = 0;
