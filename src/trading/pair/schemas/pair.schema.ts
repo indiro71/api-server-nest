@@ -34,13 +34,13 @@ export class Pair {
 
   @ApiProperty({ example: 500, description: 'Long Margin Limit' })
   @Prop({
-    default: 400,
+    default: 250,
   })
   longMarginLimit: number;
 
   @ApiProperty({ example: 400, description: 'Short Margin Limit' })
   @Prop({
-    default: 300,
+    default: 200,
   })
   shortMarginLimit: number;
 
@@ -58,7 +58,7 @@ export class Pair {
 
   @ApiProperty({ example: 10, description: 'Margin Difference' })
   @Prop({
-    default: 10,
+    default: 20,
   })
   marginDifference: number;
 
@@ -76,13 +76,13 @@ export class Pair {
 
   @ApiProperty({ example: 1.2, description: 'Buy Long Coefficient' })
   @Prop({
-    default: 1,
+    default: 1.5,
   })
   buyLongCoefficient: number;
 
   @ApiProperty({ example: 1.2, description: 'Buy Short Coefficient' })
   @Prop({
-    default: 1.3,
+    default: 2,
   })
   buyShortCoefficient: number;
 
