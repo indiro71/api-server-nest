@@ -950,8 +950,8 @@ export class TradingService {
             const longLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition.liquidatePrice));
             const shortLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition.liquidatePrice, true));
             const liquidationPercent = 97;
-            const stopBuyLongLimit = 40;
-            const stopBuyShortLimit = 35;
+            const stopBuyLongLimit = 50;
+            const stopBuyShortLimit = 45;
             const marginDifference = 15;
 
             pair.currentPrice = pairCurrentPrice;
