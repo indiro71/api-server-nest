@@ -5,6 +5,7 @@ import { ProductModule } from '../scanprices/product/product.module';
 import { ShopModule } from '../scanprices/shop/shop.module';
 import { PriceModule } from '../scanprices/price/price.module';
 import { SubscribeModule } from '../scanprices/subscribe/subscribe.module';
+import { FootballModule } from '../football/football.module';
 
 @Module({
   providers: [CronService],
@@ -14,6 +15,7 @@ import { SubscribeModule } from '../scanprices/subscribe/subscribe.module';
     ShopModule,
     PriceModule,
     SubscribeModule,
+    FootballModule,
   ],
 })
 export class CronModule {}

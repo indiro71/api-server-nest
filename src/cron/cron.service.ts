@@ -8,6 +8,8 @@ import { ShopService } from '../scanprices/shop/shop.service';
 import { PriceService } from '../scanprices/price/price.service';
 import { SubscribeService } from '../scanprices/subscribe/subscribe.service';
 import { TradingService } from '../trading/trading.service';
+import { FootballDataService } from '../services/footballData/footballData.service';
+import { FootballService } from '../football/football.service';
 
 @Injectable()
 export class CronService {
@@ -20,6 +22,7 @@ export class CronService {
     private subscribeService: SubscribeService,
     private logger: LoggerService,
     private tradingService: TradingService,
+    private footballService: FootballService,
   ) {
     this.scanpricesPage = null;
   }
@@ -135,6 +138,24 @@ export class CronService {
       await this.tradingService.clearStatistics();
     } catch (e) {
       this.logger.error('TradingCron error', e.message);
+    }
+  }
+
+  @Cron('0 0 12 * * *')
+  async todayMatches() {
+    try {
+      await this.footballService.todayMatches();
+    } catch (e) {
+      this.logger.error('Error on Today Matches', e.message);
+    }
+  }
+
+  @Cron('0 0 12 * * *')
+  async topMatches() {
+    try {
+      await this.footballService.topMatches();
+    } catch (e) {
+      this.logger.error('Error on Top Matches', e.message);
     }
   }
 }

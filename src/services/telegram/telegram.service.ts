@@ -18,9 +18,9 @@ export class TelegramService {
     }
   }
 
-  async sendMessage(text: string): Promise<any> {
+  async sendMessage(text: string, chatId?: string): Promise<any> {
     try {
-      return await this.bot.sendMessage(process.env.CHAT_ID, text);
+      return await this.bot.sendMessage(chatId || process.env.CHAT_ID, text);
     } catch (error) {
       console.error('Error sending message to Telegram:', error);
       throw error;
