@@ -13,6 +13,7 @@ import { CronService } from './cron/cron.service';
 import { ServicesModule } from './services/services.module';
 import { join } from 'path';
 import { TradingModule } from './trading/trading.module';
+import { FootballModule } from './football/football.module';
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { TradingModule } from './trading/trading.module';
     AuthModule,
     ParserModule,
     ServicesModule,
-    TradingModule
+    TradingModule,
+    FootballModule
   ],
   providers: [CronService],
 })
