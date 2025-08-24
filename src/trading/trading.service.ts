@@ -953,6 +953,7 @@ export class TradingService {
             const stopBuyLongLimit = 50;
             const stopBuyShortLimit = 40;
             const marginDifference = 15;
+            const allPositionIsMinimal = pair.longMargin < stopBuyLongLimit && pair.shortMargin < stopBuyShortLimit;
 
             pair.currentPrice = pairCurrentPrice;
             pair.ordersCount = pairOrders;
@@ -978,7 +979,7 @@ export class TradingService {
 
               let longNextBuyPercent = 0;
 
-              const canBuy = pair.longMargin < pair.longMarginLimit && pair.shortMargin > stopBuyShortLimit;
+              const canBuy =  allPositionIsMinimal || (pair.longMargin < pair.longMarginLimit && pair.shortMargin > stopBuyShortLimit);
 
               if (canBuy) {
                 longNextBuyPercent = correctionBuyLongPercent || pair.buyLongCoefficient;
@@ -1064,6 +1065,7 @@ export class TradingService {
               let shortNextBuyPercent = 0;
 
               const canBuy = pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLongLimit;
+              // const canBuy = allPositionIsMinimal || (pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLongLimit);
 
               if (canBuy) {
                 shortNextBuyPercent = correctionBuyShortPercent || pair.buyShortCoefficient;
