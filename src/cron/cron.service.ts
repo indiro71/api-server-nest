@@ -142,20 +142,20 @@ export class CronService {
   }
 
   @Cron('0 0 12 * * *')
-  async todayMatches() {
-    try {
-      await this.footballService.todayMatches();
-    } catch (e) {
-      this.logger.error('Error on Today Matches', e.message);
-    }
-  }
-
-  @Cron('0 0 12 * * *')
   async topMatches() {
     try {
       await this.footballService.topMatches();
     } catch (e) {
       this.logger.error('Error on Top Matches', e.message);
+    }
+  }
+
+  @Cron('0 0 12 * * *')
+  async todayMatches() {
+    try {
+      await this.footballService.todayMatches();
+    } catch (e) {
+      this.logger.error('Error on Today Matches', e.message);
     }
   }
 }
