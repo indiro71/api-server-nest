@@ -4,9 +4,10 @@ import { FilesModule } from './files/files.module';
 import { LoggerModule } from './logger/logger.module';
 import { MxcModule } from './mxc/mxc.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { BybitModule } from './bybit/bybit.module';
 
 @Module({
-  imports: [StorageModule, FilesModule, LoggerModule, MxcModule, TelegramModule],
-  exports: [StorageModule, FilesModule, LoggerModule, MxcModule, TelegramModule],
+  imports: [StorageModule, FilesModule, LoggerModule, MxcModule, TelegramModule, BybitModule],
+  exports: [StorageModule, FilesModule, LoggerModule, MxcModule, TelegramModule, BybitModule],
 })
 export class ServicesModule {}
