@@ -5,10 +5,12 @@ import { OrderModule } from './order/order.module';
 import { MxcService } from '../services/mxc/mxc.service';
 import { TradingService } from './trading.service';
 import { ServicesModule } from '../services/services.module';
+import { BybitService } from '../services/bybit/bybit.service';
 
 @Module({
-  imports: [PairModule, CurrencyModule, OrderModule, HttpModule, ServicesModule],
-  providers: [MxcService, TradingService],
-  exports: [PairModule, CurrencyModule, OrderModule, TradingService],
+    imports: [PairModule, CurrencyModule, OrderModule, HttpModule, ServicesModule],
+    providers: [MxcService, BybitService, TradingService],
+    exports: [PairModule, CurrencyModule, OrderModule, TradingService],
 })
-export class TradingModule {}
+export class TradingModule {
+}
