@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { LoggerService } from "nest-logger";
 import { Page } from 'puppeteer';
 import { ParserService } from '../parser/parser.service';
@@ -138,6 +138,15 @@ export class CronService {
             await this.tradingService.clearStatistics();
         } catch (e) {
             this.logger.error('TradingCron error', e.message);
+        }
+    }
+
+    @Cron(CronExpression.EVERY_HOUR)
+    async tradingCronCheckBuy() {
+        try {
+            await this.tradingService.checkBuy();
+        } catch (e) {
+            this.logger.error('TradingCronCheckBuy error', e.message);
         }
     }
 
