@@ -195,7 +195,7 @@ export class TradingService {
         this.checkCount = 0;
         this.bookCount = 0;
         this.autoBuyCount = 0;
-        this.warningPercent = 50;
+        this.warningPercent = 100;
         this.dailyProfit = { ...profit };
         this.dailyTransactions = { ...transactions };
         this.initialStats = { ...inStats };
@@ -1006,7 +1006,7 @@ export class TradingService {
 
                         const liquidationPercent = 97;
                         const stopBuyLongLimit = 50;
-                        const stopBuyShortLimit = 40;
+                        const stopBuyShortLimit = 50;
                         const marginDifference = 15;
 
                         const allPositionIsMinimal = pair.longMargin < stopBuyLongLimit && pair.shortMargin < stopBuyShortLimit;
@@ -1053,10 +1053,10 @@ export class TradingService {
                                 // какая-то проблема со следующим ордером
                                 if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
                                     pair.nextBuyLongPriceWarning = true;
-                                    if (!pair.buyNotificationSending) {
-                                        messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [BUY] [${longNextBuyPrice}]`);
-                                        pair.buyNotificationSending = true;
-                                    }
+                                    // if (!pair.buyNotificationSending) {
+                                    //     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [BUY] [${longNextBuyPrice}]`);
+                                    //     pair.buyNotificationSending = true;
+                                    // }
                                 } else {
                                     pair.nextBuyLongPriceWarning = false;
                                 }
@@ -1105,10 +1105,10 @@ export class TradingService {
 
                             pair.sellLongPrice = longSellPrice;
                         } else {
-                            if (!pair.buyNotificationSending) {
-                                messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [BUY]`);
-                                pair.buyNotificationSending = true;
-                            }
+                            // if (!pair.buyNotificationSending) {
+                            //     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [BUY]`);
+                            //     pair.buyNotificationSending = true;
+                            // }
                             pair.nextBuyLongPriceWarning = true;
                             pair.nextBuyLongPrice = 0;
                         }
@@ -1138,10 +1138,10 @@ export class TradingService {
                                 // какая-то проблема со следующим ордером
                                 if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
                                     pair.nextBuyShortPriceWarning = true;
-                                    if (!pair.buyNotificationSending) {
-                                        messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [BUY] [${shortNextBuyPrice}]`);
-                                        pair.buyNotificationSending = true;
-                                    }
+                                    // if (!pair.buyNotificationSending) {
+                                    //     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [BUY] [${shortNextBuyPrice}]`);
+                                    //     pair.buyNotificationSending = true;
+                                    // }
                                 } else {
                                     pair.nextBuyShortPriceWarning = false;
                                 }
@@ -1190,10 +1190,10 @@ export class TradingService {
 
                             pair.sellShortPrice = shortSellPrice;
                         } else {
-                            if (!pair.buyNotificationSending) {
-                                messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [BUY]`);
-                                pair.buyNotificationSending = true;
-                            }
+                            // if (!pair.buyNotificationSending) {
+                            //     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [BUY]`);
+                            //     pair.buyNotificationSending = true;
+                            // }
                             pair.nextBuyShortPriceWarning = true;
                             pair.nextBuyShortPrice = 0;
                         }
@@ -1216,6 +1216,31 @@ export class TradingService {
             // if (this.isWorkingTime()) {
             //   await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
             // }
+        }
+    }
+
+    async checkBuy() {
+        if (!this.isActiveTrade) return;
+
+        const pairs = await this.pairService.getAll();
+        if (pairs?.length > 0) {
+            try {
+                const messages = [];
+                for (const pair of pairs) {
+                    if (pair?.nextBuyLongPriceWarning || pair?.nextBuyShortPriceWarning) {
+                        messages.push(`🚨 [${pair.name}] [${pair.exchange}] [${pair?.nextBuyLongPriceWarning ? 'LONG' : 'SHORT'}] [BUY]`);
+                    }
+                }
+
+                if (messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
+                    await this.telegramService.sendMessage(messages.join('\n\n'));
+                }
+            } catch (err) {
+                console.error(err?.message);
+                if (this.isWorkingTime()) {
+                    await this.telegramService.sendMessage(`Ошибка checkBuy: ${err.message}`);
+                }
+            }
         }
     }
 
