@@ -83,13 +83,13 @@ export class Pair {
 
     @ApiProperty({ example: 1.2, description: 'Buy Long Coefficient' })
     @Prop({
-        default: 1.5,
+        default: 2,
     })
     buyLongCoefficient: number;
 
     @ApiProperty({ example: 1.2, description: 'Buy Short Coefficient' })
     @Prop({
-        default: 3,
+        default: 4,
     })
     buyShortCoefficient: number;
 
