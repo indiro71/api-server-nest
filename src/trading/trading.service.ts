@@ -1227,8 +1227,11 @@ export class TradingService {
             try {
                 const messages = [];
                 for (const pair of pairs) {
-                    if (pair?.nextBuyLongPriceWarning || pair?.nextBuyShortPriceWarning) {
-                        messages.push(`🚨 [${pair.name}] [${pair.exchange}] [${pair?.nextBuyLongPriceWarning ? 'LONG' : 'SHORT'}] [BUY]`);
+                    const needNextLong = pair?.nextBuyLongPrice && pair?.currentPrice < pair?.nextBuyLongPrice;
+                    const needNextShort = pair?.nextBuyShortPrice && pair?.currentPrice > pair?.nextBuyShortPrice;
+
+                    if (needNextLong || needNextShort) {
+                        messages.push(`🚨 [${pair.name}] [${pair.exchange}] [${needNextLong ? 'LONG' : 'SHORT'}] [BUY]`);
                     }
                 }
 
