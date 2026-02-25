@@ -1220,8 +1220,6 @@ export class TradingService {
     }
 
     async checkBuy() {
-        if (!this.isActiveTrade) return;
-
         const pairs = await this.pairService.getAll();
         if (pairs?.length > 0) {
             try {
