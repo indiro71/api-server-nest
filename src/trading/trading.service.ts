@@ -5,10 +5,10 @@ import { TelegramService } from '../services/telegram/telegram.service';
 import { OrderService } from './order/order.service';
 import { CreateOrderDto } from './order/dto/create-order.dto';
 import { PairService } from './pair/pair.service';
-import { PositionType, SideType } from '../services/mxc/mxc.interfaces';
+import { PositionType } from '../services/mxc/mxc.interfaces';
 import { BybitService } from '../services/bybit/bybit.service';
-import { Exchange, Order, Position } from './trading.interfaces';
-import { getBybitOrders, getBybitPositions, getMexcOrders, getMexcPositions } from './trading.utils';
+import { Exchange, Position } from './trading.interfaces';
+import { getBybitPositions, getMexcPositions } from './trading.utils';
 
 /* tg commands---------------
 togglemonitoring - Toggle Monitoring Price
@@ -961,16 +961,8 @@ export class TradingService {
                 const mexcPositions = getMexcPositions(mexcPositionsResponse.data);
                 await this.waiting();
 
-                const mexcOrdersResponse = await this.mxcService.getOrders();
-                const mexcOrders = getMexcOrders(mexcOrdersResponse.data);
-                await this.waiting();
-
                 const bybitPositionsResponse = await this.bybitService.getPositions();
                 const bybitPositions = getBybitPositions(bybitPositionsResponse.result.list);
-                await this.waiting();
-
-                const bybitOrdersResponse = await this.bybitService.getOrders();
-                const bybitOrders = getBybitOrders(bybitOrdersResponse.result.list);
                 await this.waiting();
 
                 const messages = [];
@@ -980,16 +972,13 @@ export class TradingService {
                         if (!pair.isActive) continue;
 
                         let positions: Position[] = [];
-                        let orders: Order[] = [];
 
                         switch (pair.exchange) {
                             case Exchange.MEXC:
                                 positions = mexcPositions;
-                                orders = mexcOrders;
                                 break;
                             case Exchange.BYBIT:
                                 positions = bybitPositions;
-                                orders = bybitOrders;
                                 break;
                         }
 
@@ -998,7 +987,6 @@ export class TradingService {
                         const longPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.LONG);
                         const shortPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.SHORT);
 
-                        const pairOrders = orders?.filter(order => order.symbol === pair.symbol)?.length;
                         const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
                         const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;
                         const longLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition?.liquidatePrice));
@@ -1012,7 +1000,6 @@ export class TradingService {
                         const allPositionIsMinimal = pair.longMargin < stopBuyLongLimit && pair.shortMargin < stopBuyShortLimit;
 
                         pair.currentPrice = pairCurrentPrice;
-                        pair.ordersCount = pairOrders;
                         pair.longPrice = longPosition?.holdAvgPrice || 0;
                         pair.longMargin = longPosition?.oim || 0;
                         pair.longAllMargin = longPosition?.im || 0;
@@ -1048,37 +1035,11 @@ export class TradingService {
                                     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [AUTOBUY] \n Необходимо включить автодобавление маржи лонга`);
                                 }
 
-                                const nextBuyLongOrder = orders?.find(order => order.price === longNextBuyPrice && order.symbol === pair.symbol && order.side === SideType.LONG_OPEN);
-
-                                // какая-то проблема со следующим ордером
-                                if (pair.nextBuyLongPrice !== longNextBuyPrice || !nextBuyLongOrder) {
-                                    pair.nextBuyLongPriceWarning = true;
-                                    // if (!pair.buyNotificationSending) {
-                                    //     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [BUY] [${longNextBuyPrice}]`);
-                                    //     pair.buyNotificationSending = true;
-                                    // }
-                                } else {
-                                    pair.nextBuyLongPriceWarning = false;
-                                }
-
-                                if (pair.nextBuyLongPrice !== longNextBuyPrice) needClearNotification = true;
                                 pair.nextBuyLongPrice = longNextBuyPrice;
                             } else {
                                 pair.nextBuyLongPriceWarning = false;
                                 pair.nextBuyLongPrice = 0;
                             }
-
-                            //высчитывание добавления продления маржи лонга
-                            // if (longLiquidationPercent > liquidationPercent) {
-                            //     if (!pair.marginNotificationSending) {
-                            //         messages.push(`🚨🚨 [${pair.name}] [${pair.exchange}] [LONG] [MARGIN] [NEED_ADDED]`);
-                            //         pair.marginNotificationSending = true;
-                            //     }
-                            // }
-
-                            // if (longLiquidationPercent > 99) {
-                            //     await this.telegramService.sendMessage(`🚨 🚨 🚨 Warning ${pair.name} by percent - ${longLiquidationPercent}%`);
-                            // }
 
                             if (longPosition.liquidatePrice !== pair.longLiquidatePrice) pair.marginNotificationSending = false;
 
@@ -1088,27 +1049,15 @@ export class TradingService {
                             //проверка позиции продажи лонга
                             const longSellPercent = pair.longMargin < pair.longMarginStep ? 1 : pair.sellPercent;
                             const longSellPrice = +(pair.longPrice + (pair.longPrice * longSellPercent) / 100).toFixed(pair.round);
-                            const longSellOrder = orders?.find(order => order.price === longSellPrice && order.symbol === pair.symbol && order.side === SideType.LONG_CLOSE);
-
-                            // какая-то проблема с ордером продажи
-                            if (pair.sellLongPrice !== longSellPrice || !longSellOrder) {
-                                pair.sellLongPriceWarning = true;
-                            } else {
-                                pair.sellLongPriceWarning = false;
-                            }
 
                             // уведомление о продаже лонга
-                            if (pair.currentPrice > longSellPrice && !pair.sellNotificationSending && !longSellOrder) {
+                            if (pair.currentPrice > longSellPrice && !pair.sellNotificationSending) {
                                 messages.push(`💰 [${pair.name}] [${pair.exchange}] [LONG] [SELL]`);
                                 pair.sellNotificationSending = true;
                             }
 
                             pair.sellLongPrice = longSellPrice;
                         } else {
-                            // if (!pair.buyNotificationSending) {
-                            //     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [BUY]`);
-                            //     pair.buyNotificationSending = true;
-                            // }
                             pair.nextBuyLongPriceWarning = true;
                             pair.nextBuyLongPrice = 0;
                         }
@@ -1133,37 +1082,12 @@ export class TradingService {
                                 if (shortNextBuyPercent > pair.criticalPercent && !shortPosition.autoAddIm) {
                                     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [AUTOBUY] \n Необходимо включить автодобавление маржи шорта`);
                                 }
-                                const nextBuyShortOrder = orders?.find(order => order.price === shortNextBuyPrice && order.symbol === pair.symbol && order.side === SideType.SHORT_OPEN);
 
-                                // какая-то проблема со следующим ордером
-                                if (pair.nextBuyShortPrice !== shortNextBuyPrice || !nextBuyShortOrder) {
-                                    pair.nextBuyShortPriceWarning = true;
-                                    // if (!pair.buyNotificationSending) {
-                                    //     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [BUY] [${shortNextBuyPrice}]`);
-                                    //     pair.buyNotificationSending = true;
-                                    // }
-                                } else {
-                                    pair.nextBuyShortPriceWarning = false;
-                                }
-
-                                if (pair.nextBuyShortPrice !== shortNextBuyPrice) needClearNotification = true;
                                 pair.nextBuyShortPrice = shortNextBuyPrice;
                             } else {
                                 pair.nextBuyShortPriceWarning = false;
                                 pair.nextBuyShortPrice = 0;
                             }
-
-                            //высчитывание добавления продления маржи шорта
-                            // if (shortLiquidationPercent > liquidationPercent) {
-                            //     if (!pair.marginNotificationSending) {
-                            //         messages.push(`🚨🚨 [${pair.name}] [${pair.exchange}] [SHORT] [MARGIN] [NEED_ADDED]`);
-                            //         pair.marginNotificationSending = true;
-                            //     }
-                            // }
-
-                            // if (shortLiquidationPercent > 99) {
-                            //     await this.telegramService.sendMessage(`🚨 🚨 🚨 Warning ${pair.name} by percent - ${longLiquidationPercent}%`);
-                            // }
 
                             if (shortPosition.liquidatePrice !== pair.shortLiquidatePrice) pair.marginNotificationSending = false;
 
@@ -1173,17 +1097,9 @@ export class TradingService {
                             //проверка позиции продажи шорта
                             const shortSellPercent = pair.shortMargin < pair.shortMarginStep ? 1 : pair.sellPercent;
                             const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * shortSellPercent) / 100).toFixed(pair.round);
-                            const shortSellOrder = orders?.find(order => order.price === shortSellPrice && order.symbol === pair.symbol && order.side === SideType.SHORT_CLOSE);
-
-                            // какая-то проблема с ордером продажи
-                            if (pair.sellShortPrice !== shortSellPrice || !shortSellOrder) {
-                                pair.sellShortPriceWarning = true;
-                            } else {
-                                pair.sellShortPriceWarning = false;
-                            }
 
                             // уведомление о продаже шорта
-                            if (pair.currentPrice < shortSellPrice && !pair.sellNotificationSending && !shortSellOrder) {
+                            if (pair.currentPrice < shortSellPrice && !pair.sellNotificationSending) {
                                 messages.push(`💰 [${pair.name}] [${pair.exchange}] [SHORT] [SELL]`);
                                 pair.sellNotificationSending = true;
                             }
