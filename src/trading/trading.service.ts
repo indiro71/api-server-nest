@@ -1145,11 +1145,11 @@ export class TradingService {
             try {
                 const messages = [];
                 for (const pair of pairs) {
-                    if (pair.currentPrice < pair.sellShortPrice) {
+                    if (pair.currentPrice < pair.sellShortPrice && pair.shortMargin > 0) {
                         messages.push(`💰 [${pair.name}] [${pair.exchange}] [SHORT] [SELL]`);
                     }
 
-                    if (pair.currentPrice > pair.sellLongPrice) {
+                    if (pair.currentPrice > pair.sellLongPrice && pair.longMargin > 0) {
                         messages.push(`💰 [${pair.name}] [${pair.exchange}] [LONG] [SELL]`);
                     }
                 }
