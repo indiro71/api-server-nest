@@ -982,7 +982,6 @@ export class TradingService {
                                 break;
                         }
 
-                        let needClearNotification = false;
                         const pairCurrentPrice = await this.getPairCurrentPrice(pair);
                         const longPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.LONG);
                         const shortPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.SHORT);
@@ -1050,12 +1049,6 @@ export class TradingService {
                             const longSellPercent = pair.longMargin < pair.longMarginStep ? 1 : pair.sellPercent;
                             const longSellPrice = +(pair.longPrice + (pair.longPrice * longSellPercent) / 100).toFixed(pair.round);
 
-                            // уведомление о продаже лонга
-                            if (pair.currentPrice > longSellPrice && !pair.sellNotificationSending) {
-                                messages.push(`💰 [${pair.name}] [${pair.exchange}] [LONG] [SELL]`);
-                                pair.sellNotificationSending = true;
-                            }
-
                             pair.sellLongPrice = longSellPrice;
                         } else {
                             pair.nextBuyLongPriceWarning = true;
@@ -1098,25 +1091,10 @@ export class TradingService {
                             const shortSellPercent = pair.shortMargin < pair.shortMarginStep ? 1 : pair.sellPercent;
                             const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * shortSellPercent) / 100).toFixed(pair.round);
 
-                            // уведомление о продаже шорта
-                            if (pair.currentPrice < shortSellPrice && !pair.sellNotificationSending) {
-                                messages.push(`💰 [${pair.name}] [${pair.exchange}] [SHORT] [SELL]`);
-                                pair.sellNotificationSending = true;
-                            }
-
                             pair.sellShortPrice = shortSellPrice;
                         } else {
-                            // if (!pair.buyNotificationSending) {
-                            //     messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [BUY]`);
-                            //     pair.buyNotificationSending = true;
-                            // }
                             pair.nextBuyShortPriceWarning = true;
                             pair.nextBuyShortPrice = 0;
-                        }
-
-                        if (needClearNotification) {
-                            pair.buyNotificationSending = false;
-                            pair.sellNotificationSending = false;
                         }
 
                         await this.pairService.update(pair._id, pair);
@@ -1156,6 +1134,33 @@ export class TradingService {
                 console.error(err?.message);
                 if (this.isWorkingTime()) {
                     await this.telegramService.sendMessage(`Ошибка checkBuy: ${err.message}`);
+                }
+            }
+        }
+    }
+
+    async checkSell() {
+        const pairs = await this.pairService.getAll();
+        if (pairs?.length > 0) {
+            try {
+                const messages = [];
+                for (const pair of pairs) {
+                    if (pair.currentPrice < pair.sellShortPrice) {
+                        messages.push(`💰 [${pair.name}] [${pair.exchange}] [SHORT] [SELL]`);
+                    }
+
+                    if (pair.currentPrice > pair.sellLongPrice) {
+                        messages.push(`💰 [${pair.name}] [${pair.exchange}] [LONG] [SELL]`);
+                    }
+                }
+
+                if (messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
+                    await this.telegramService.sendMessage(messages.join('\n\n'));
+                }
+            } catch (err) {
+                console.error(err?.message);
+                if (this.isWorkingTime()) {
+                    await this.telegramService.sendMessage(`Ошибка checkSell: ${err.message}`);
                 }
             }
         }
