@@ -150,6 +150,15 @@ export class CronService {
         }
     }
 
+    @Cron(CronExpression.EVERY_5_MINUTES)
+    async tradingCronCheckSell() {
+        try {
+            await this.tradingService.checkSell();
+        } catch (e) {
+            this.logger.error('TradingCronCheckSell error', e.message);
+        }
+    }
+
     @Cron('0 0 12 * * *')
     async topMatches() {
         try {
