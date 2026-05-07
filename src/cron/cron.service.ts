@@ -114,7 +114,7 @@ export class CronService {
         }
     }
 
-    @Cron(CronExpression.EVERY_MINUTE)
+    @Cron(CronExpression.EVERY_5_SECONDS)
     async tradeMonitoring() {
         try {
             await this.tradingService.tradeMonitoring();

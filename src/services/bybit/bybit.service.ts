@@ -56,4 +56,24 @@ export class BybitService {
             console.error('Bybit getOrders error:', e.response?.data || e.message);
         }
     }
+
+    async addMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
+        try {
+            const result = await this.client.addOrReduceMargin({
+                category: CategoryType.LINEAR,
+                symbol,
+                margin: `${margin}`,
+                ...(positionIdx !== undefined ? { positionIdx } : {}),
+            } as any);
+
+            if (result?.retCode) {
+                throw new Error(result.retMsg);
+            }
+
+            return result;
+        } catch (e) {
+            console.error('Bybit addMargin error:', e.response?.data || e.message);
+            throw e;
+        }
+    }
 }

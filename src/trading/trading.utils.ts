@@ -46,6 +46,7 @@ export const getBybitPositions = (positions: IBybitPosition[]): Position[] => {
         return {
             symbol: position.symbol,
             positionType: position.side === PositionSide.Buy ? PositionType.LONG : PositionType.SHORT,
+            positionIdx: position.positionIdx,
             holdAvgPrice: avgPrice,
             im: totalMargin,
             oim: baseMargin,
