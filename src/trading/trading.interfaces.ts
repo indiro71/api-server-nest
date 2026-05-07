@@ -8,6 +8,7 @@ export enum Exchange {
 export interface Position {
     symbol: string;
     positionType: PositionType;
+    positionIdx?: number;
     holdAvgPrice: number; // цена позиции
     im: number;// суммарная маржа
     oim: number; // маржа

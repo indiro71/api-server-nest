@@ -9,6 +9,7 @@ import { PositionType } from '../services/mxc/mxc.interfaces';
 import { BybitService } from '../services/bybit/bybit.service';
 import { Exchange, Position } from './trading.interfaces';
 import { getBybitPositions, getMexcPositions } from './trading.utils';
+import { Pair } from './pair/schemas/pair.schema';
 
 /* tg commands---------------
 togglemonitoring - Toggle Monitoring Price
@@ -406,7 +407,11 @@ export class TradingService {
     }
 
     async inited() {
-        await this.telegramService.sendMessage("Trading on " + new Date());
+        try {
+            await this.telegramService.sendMessage("Trading on " + new Date());
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     async listenTg() {
@@ -952,8 +957,11 @@ export class TradingService {
 
     async tradeMonitoring() {
         if (!this.isActiveMonitoring) return;
+        if (this.isMonitoring) return;
 
         try {
+            this.isMonitoring = true;
+
             const pairs = await this.pairService.getAll();
 
             if (pairs?.length > 0 && !this.isTraded) {
@@ -966,8 +974,9 @@ export class TradingService {
                 await this.waiting();
 
                 const messages = [];
+                const addMarginPairs: Pair[] = [];
 
-                if (mexcPositions?.length > 0 || bybitPositions?.length > 0) {
+                if (bybitPositions?.length > 0) {
                     for (const pair of pairs) {
                         if (!pair.isActive) continue;
 
@@ -991,9 +1000,9 @@ export class TradingService {
                         const longLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition?.liquidatePrice));
                         const shortLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition?.liquidatePrice, true));
 
-                        const liquidationPercent = 97;
-                        const stopBuyLongLimit = 50;
-                        const stopBuyShortLimit = 50;
+                        const liquidationPercent = 95;
+                        const stopBuyLongLimit = 48;
+                        const stopBuyShortLimit = 48;
                         const marginDifference = 15;
 
                         const allPositionIsMinimal = pair.longMargin < stopBuyLongLimit && pair.shortMargin < stopBuyShortLimit;
@@ -1012,6 +1021,14 @@ export class TradingService {
 
                         if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
                             await this.telegramService.sendMessage(`🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`);
+                        }
+
+                        if (pair.longLiquidatePercent > liquidationPercent && pair.longMargin > marginDifference) {
+                            addMarginPairs.push(pair);
+                        }
+
+                        if (pair.shortLiquidatePercent > liquidationPercent && pair.shortMargin > marginDifference) {
+                            addMarginPairs.push(pair);
                         }
 
                         if (longPosition) {
@@ -1101,6 +1118,11 @@ export class TradingService {
                     }
                 }
 
+                if (addMarginPairs?.length > 0) {
+                    const marginMessages = await this.addMargin(addMarginPairs);
+                    messages.push(...marginMessages);
+                }
+
                 if (messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
                     await this.telegramService.sendMessage(messages.join('\n\n'));
                 }
@@ -1110,7 +1132,61 @@ export class TradingService {
             // if (this.isWorkingTime()) {
             //   await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
             // }
+        } finally {
+            this.isMonitoring = false;
         }
+    }
+
+    async addMargin(pairs: Pair[]): Promise<string[]> {
+        if (pairs?.length > 0) {
+            try {
+                const messages = [];
+                const liquidationPercent = 95;
+                const marginLimit = 20; // 100
+                const maxMargin = 500;
+
+                const uniquePairs = pairs.filter((pair, index, list) => {
+                    return list.findIndex(item => `${item._id}` === `${pair._id}`) === index;
+                });
+
+                for (const pair of uniquePairs) {
+                    const needAddLongMargin = pair?.longLiquidatePercent > liquidationPercent && pair.longAllMargin < maxMargin;
+                    const needAddShortMargin = pair?.shortLiquidatePercent > liquidationPercent && pair.shortAllMargin < maxMargin;
+
+                    const longMarginValue = pair?.longMargin < marginLimit ? pair?.longMargin : marginLimit;
+                    const shortMarginValue = pair?.shortMargin < marginLimit ? pair?.shortMargin : marginLimit;
+
+                    if (needAddLongMargin) {
+                        switch (pair.exchange) {
+                            case Exchange.BYBIT:
+                                await this.bybitService.addMargin(pair.symbol, longMarginValue, PositionType.LONG);
+                                messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [ADD] ${longMarginValue}`);
+                                break;
+                        }
+                    }
+
+                    if (needAddShortMargin) {
+                        switch (pair.exchange) {
+                            case Exchange.BYBIT:
+                                await this.bybitService.addMargin(pair.symbol, shortMarginValue, PositionType.SHORT);
+                                messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [ADD] ${shortMarginValue}`);
+                                break;
+                        }
+                    }
+                }
+
+                return messages;
+            } catch (err) {
+                console.error(err?.message);
+                if (this.isWorkingTime()) {
+                    await this.telegramService.sendMessage(`Ошибка addMargin: ${err.message}`);
+                }
+
+                return [];
+            }
+        }
+
+        return [];
     }
 
     async checkBuy() {
