@@ -28,140 +28,12 @@ sellorder - Sell  order - (5000)
 buyorder - Buy order - (5000)
 dailyprofit - Show daily profit
 togglerise - Toggle Buy on rise
-moneystat - Money statistics
-diffstat - Different statistics
 lastvalue - Set last value
 setquantity - Set purchase quantity
 setstrategy - Set strategy new/old
 setwarningpercent - Set warning price
 
  */
-
-const initialDiffStats = {
-    'KASUSDT': [],
-    'MXUSDC': []
-};
-for (let i = 0; i < 20; i++) {
-    const stat = {
-        price: (0.150 + (0.0001 * i)).toFixed(4),
-        count: 0,
-        lastValue: (0.150 + (0.0001 * i)).toFixed(4)
-    }
-    initialDiffStats.KASUSDT.push(stat);
-}
-
-for (let i = 0; i < 20; i++) {
-    const stat = {
-        price: (10 + (0.001 * i)).toFixed(4),
-        count: 0,
-        lastValue: (10 + (0.001 * i)).toFixed(4)
-    }
-    initialDiffStats.MXUSDC.push(stat);
-}
-
-const curSteps = {
-    'KASUSDT': 0.002,
-    'MXUSDC': 0.1
-}
-
-const inStats = {
-    'KASUSDT': {
-        '0.0005': {
-            count: 0,
-            coefficient: 1,
-            lastValue: 0
-        },
-        '0.001': {
-            count: 0,
-            coefficient: 4,
-            lastValue: 0
-        },
-        '0.002': {
-            count: 0,
-            coefficient: 16,
-            lastValue: 0
-        },
-        '0.003': {
-            count: 0,
-            coefficient: 36,
-            lastValue: 0
-        },
-        '0.004': {
-            count: 0,
-            coefficient: 64,
-            lastValue: 0
-        },
-        '0.005': {
-            count: 0,
-            coefficient: 100,
-            lastValue: 0
-        },
-        '0.01': {
-            count: 0,
-            coefficient: 400,
-            lastValue: 0
-        },
-    },
-    'MXUSDC': {
-        '0.005': {
-            count: 0,
-            coefficient: 1,
-            lastValue: 0
-        },
-        '0.01': {
-            count: 0,
-            coefficient: 4,
-            lastValue: 0
-        },
-        '0.02': {
-            count: 0,
-            coefficient: 16,
-            lastValue: 0
-        },
-        '0.03': {
-            count: 0,
-            coefficient: 36,
-            lastValue: 0
-        },
-        '0.04': {
-            count: 0,
-            coefficient: 64,
-            lastValue: 0
-        },
-        '0.05': {
-            count: 0,
-            coefficient: 100,
-            lastValue: 0
-        },
-        '0.1': {
-            count: 0,
-            coefficient: 400,
-            lastValue: 0
-        },
-    }
-}
-
-type CurrencyStat = Record<string, {
-    coefficient: number,
-    count: number,
-    lastValue: number
-}>
-
-const stepPrices = {
-    'KASUSDT': [0.0005, 0.001, 0.002, 0.003, 0.004, 0.005, 0.01],
-    'MXUSDC': [0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1],
-};
-
-const profit = {
-    'KASUSDT': 0,
-    'KASUSDT-newStrategy': 0
-};
-
-const transactions = {
-    'KASUSDT': 0,
-    'KASUSDT-newStrategy': 0,
-    'KASUSDT-up': 0
-};
 
 @Injectable()
 export class TradingService {
@@ -176,14 +48,17 @@ export class TradingService {
     private bookCount: number;
     private autoBuyCount: number;
     private warningPercent: number;
+    private liquidationMaxPercent: number;
+    private liquidationMinPercent: number;
+    private stopBuyLongLimit: number;
+    private stopBuyShortLimit: number;
+    private marginDifference: number;
+    private marginAddLimit: number;
+    private marginRemoveLimit: number;
+    private maxMargin: number;
+    private minMargin: number;
     private dailyProfit: Record<string, number>;
     private dailyTransactions: Record<string, number>;
-    private initialStats: Record<string, CurrencyStat>;
-    private diffStats: Record<string, {
-        count: number,
-        price: number,
-        lastValue: number
-    }[]>;
 
     constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
         this.isTraded = false;
@@ -197,10 +72,15 @@ export class TradingService {
         this.bookCount = 0;
         this.autoBuyCount = 0;
         this.warningPercent = 100;
-        this.dailyProfit = { ...profit };
-        this.dailyTransactions = { ...transactions };
-        this.initialStats = { ...inStats };
-        this.diffStats = { ...initialDiffStats };
+        this.liquidationMaxPercent = 95;
+        this.liquidationMinPercent = 60;
+        this.marginAddLimit = 20; // 100
+        this.marginRemoveLimit = 20; // 100
+        this.maxMargin = 500;
+        this.minMargin = 100;
+        this.stopBuyLongLimit = 48;
+        this.stopBuyShortLimit = 48;
+        this.marginDifference = 15;
         this.inited();
         this.listenTg();
     }
@@ -373,39 +253,6 @@ export class TradingService {
         }
     }
 
-    async statistics(currencyCurrentPrice: number, currencyName: string) {
-        stepPrices[currencyName].forEach(stepPrice => {
-            const priceData = this.initialStats[currencyName][`${stepPrice}`];
-
-            if (priceData.lastValue === 0) {
-                priceData.lastValue = +currencyCurrentPrice;
-            } else {
-                const difference = currencyCurrentPrice - priceData.lastValue;
-                if (Math.abs(difference) >= stepPrice) {
-                    if (difference > 0) {
-                        priceData.count = priceData.count + 1;
-                        priceData.lastValue = +(priceData.lastValue + stepPrice).toFixed(6);
-                    } else {
-                        priceData.lastValue = +(priceData.lastValue - stepPrice).toFixed(6);
-                    }
-                }
-            }
-        });
-
-        this.diffStats[currencyName].forEach(diff => {
-            const difference = currencyCurrentPrice - diff.lastValue;
-            const step = curSteps[currencyName];
-            if (Math.abs(difference) >= step) {
-                if (difference > 0) {
-                    diff.count = diff.count + 1;
-                    diff.lastValue = +(diff.lastValue + step).toFixed(4);
-                } else {
-                    diff.lastValue = +(diff.lastValue - step).toFixed(4);
-                }
-            }
-        });
-    }
-
     async inited() {
         try {
             await this.telegramService.sendMessage("Trading on " + new Date());
@@ -417,9 +264,6 @@ export class TradingService {
     async listenTg() {
         await this.telegramService.bot.onText(/\/stat/, async () => {
             await this.sendStatistics();
-        });
-        await this.telegramService.bot.onText(/\/moneystat/, async () => {
-            await this.sendMoneyStatistics();
         });
         await this.telegramService.bot.onText(/\/enabletrade/, async () => {
             await this.enableTrade();
@@ -442,20 +286,11 @@ export class TradingService {
         await this.telegramService.bot.onText(/\/tradestatus/, async () => {
             await this.tradeStatus();
         });
-        await this.telegramService.bot.onText(/\/diffstat/, async () => {
-            await this.sendDiffStatistics();
-        });
         await this.telegramService.bot.onText(/\/istraded/, async () => {
             await this.sendIsTraded();
         });
         await this.telegramService.bot.onText(/\/dailyprofit/, async () => {
             await this.sendDailyProfit();
-        });
-        await this.telegramService.bot.onText(/\/clearstat/, async () => {
-            await this.clearStatistics();
-        });
-        await this.telegramService.bot.onText(/\/clearallstat/, async () => {
-            await this.clearStatisticsAll();
         });
         await this.telegramService.bot.onText(/\/lastvalue (.+)/, async (msg, match) => {
             await this.updateLastValue(match[1]);
@@ -725,15 +560,6 @@ export class TradingService {
         }
     }
 
-    moneyStat() {
-        let message = 'Статистика по проданным монетам: \n';
-        Object.keys(this.initialStats).forEach(currency => {
-            message = `\n` + message + `\n\nМонета - ${currency}\n`;
-            message = message + Object.keys(this.initialStats[currency]).map(stepPrice => `${stepPrice}: ${this.initialStats[currency][stepPrice].count} (k-${this.initialStats[currency][stepPrice].count * this.initialStats[currency][stepPrice].coefficient}) | ${this.initialStats[currency][stepPrice].lastValue}$`).join('\n');
-        })
-        return message;
-    }
-
     async enableTrade() {
         this.isActiveTrade = true;
         await this.telegramService.sendMessage('Бот запущен');
@@ -768,17 +594,6 @@ export class TradingService {
         await this.telegramService.sendMessage(this.isActiveTrade ? 'Бот работает' : 'Бот остановлен');
     }
 
-    diffStat() {
-        let diffMessage = 'Статистика по интервалам: \n';
-        Object.keys(this.diffStats).forEach(currency => {
-            diffMessage = diffMessage + `\n\nМонета - ${currency}\n`;
-            diffMessage = diffMessage + `\n` + this.diffStats[currency].map(d => `${d.price}: ${d.count} | ${d.lastValue}`).join('\n');
-            diffMessage = diffMessage + `\n` + this.diffStats[currency].map(d => d.count).join(' ');
-        })
-
-        return diffMessage;
-    }
-
     profitStat() {
         let profit = 0;
         let message = '';
@@ -809,16 +624,6 @@ export class TradingService {
         await this.telegramService.sendMessage(transactionsMessage + '\n \n' + profitMessage);
     }
 
-    async sendMoneyStatistics() {
-        const moneyMessage = this.moneyStat();
-        await this.telegramService.sendMessage(moneyMessage);
-    }
-
-    async sendDiffStatistics() {
-        const diffMessage = this.diffStat();
-        await this.telegramService.sendMessage(diffMessage);
-    }
-
     async sendIsTraded() {
         await this.telegramService.sendMessage(this.isTraded ? 'Yes' : 'No');
     }
@@ -826,45 +631,6 @@ export class TradingService {
     async sendDailyProfit() {
         const profitMessage = this.profitStat();
         await this.telegramService.sendMessage(profitMessage);
-    }
-
-    async clearStatistics() {
-        await this.sendStatistics();
-        // Object.keys(stepPrices).forEach(currency => {
-        //   stepPrices[currency].forEach(stepPrice => {
-        //     const priceData = this.initialStats[currency][`${stepPrice}`];
-        //     priceData.count = 0;
-        //   });
-        //
-        //   this.diffStats[currency].forEach(diff => {
-        //     diff.count = 0;
-        //   });
-        // })
-
-        this.dailyProfit = { ...profit };
-        this.dailyTransactions = { ...transactions };
-
-        await this.telegramService.sendMessage("Статистика обнулена");
-    }
-
-    async clearStatisticsAll() {
-        await this.sendStatistics();
-        Object.keys(stepPrices).forEach(currency => {
-            stepPrices[currency].forEach(stepPrice => {
-                const priceData = this.initialStats[currency][`${stepPrice}`];
-                priceData.count = 0;
-                priceData.lastValue = 0;
-            });
-
-            this.diffStats[currency].forEach(diff => {
-                diff.count = 0;
-            });
-        })
-
-        this.dailyProfit = { ...profit };
-        this.dailyTransactions = { ...transactions };
-
-        await this.telegramService.sendMessage("Статистика полностью обнулена");
     }
 
     async monitoringBook() {
@@ -974,7 +740,7 @@ export class TradingService {
                 await this.waiting();
 
                 const messages = [];
-                const addMarginPairs: Pair[] = [];
+                const changeMarginPairs: Pair[] = [];
 
                 if (bybitPositions?.length > 0) {
                     for (const pair of pairs) {
@@ -1000,12 +766,7 @@ export class TradingService {
                         const longLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition?.liquidatePrice));
                         const shortLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition?.liquidatePrice, true));
 
-                        const liquidationPercent = 95;
-                        const stopBuyLongLimit = 48;
-                        const stopBuyShortLimit = 48;
-                        const marginDifference = 15;
-
-                        const allPositionIsMinimal = pair.longMargin < stopBuyLongLimit && pair.shortMargin < stopBuyShortLimit;
+                        const allPositionIsMinimal = pair.longMargin < this.stopBuyLongLimit && pair.shortMargin < this.stopBuyShortLimit;
 
                         pair.currentPrice = pairCurrentPrice;
                         pair.longPrice = longPosition?.holdAvgPrice || 0;
@@ -1023,22 +784,22 @@ export class TradingService {
                             await this.telegramService.sendMessage(`🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`);
                         }
 
-                        if (pair.longLiquidatePercent > liquidationPercent && pair.longMargin > marginDifference) {
-                            addMarginPairs.push(pair);
+                        if (pair.longMargin > this.marginDifference && (pair.longLiquidatePercent > this.liquidationMaxPercent || pair.longLiquidatePercent < this.liquidationMinPercent)) {
+                            changeMarginPairs.push(pair);
                         }
 
-                        if (pair.shortLiquidatePercent > liquidationPercent && pair.shortMargin > marginDifference) {
-                            addMarginPairs.push(pair);
+                        if (pair.shortMargin > this.marginDifference && (pair.shortLiquidatePercent > this.liquidationMaxPercent || pair.shortLiquidatePercent < this.liquidationMinPercent)) {
+                            changeMarginPairs.push(pair);
                         }
 
                         if (longPosition) {
                             //check long
-                            const longMargin = pair.longMargin - marginDifference;
+                            const longMargin = pair.longMargin - this.marginDifference;
                             const correctionBuyLongPercent = Math.ceil(longMargin / pair.longMarginStep) * pair.buyLongCoefficient;
 
                             let longNextBuyPercent = 0;
 
-                            const canBuy = allPositionIsMinimal || (pair.longMargin < pair.longMarginLimit && pair.shortMargin > stopBuyShortLimit);
+                            const canBuy = allPositionIsMinimal || (pair.longMargin < pair.longMarginLimit && pair.shortMargin > this.stopBuyShortLimit);
 
                             if (canBuy) {
                                 longNextBuyPercent = correctionBuyLongPercent || pair.buyLongCoefficient;
@@ -1074,12 +835,12 @@ export class TradingService {
 
                         if (shortPosition) {
                             //check short
-                            const shortMargin = pair.shortMargin - marginDifference;
+                            const shortMargin = pair.shortMargin - this.marginDifference;
                             const correctionBuyShortPercent = Math.ceil(shortMargin / pair.shortMarginStep) * pair.buyShortCoefficient;
 
                             let shortNextBuyPercent = 0;
 
-                            const canBuy = pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLongLimit;
+                            const canBuy = pair.shortMargin < pair.shortMarginLimit && pair.longMargin > this.stopBuyLongLimit;
                             // const canBuy = allPositionIsMinimal || (pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLongLimit);
 
                             if (canBuy) {
@@ -1118,8 +879,8 @@ export class TradingService {
                     }
                 }
 
-                if (addMarginPairs?.length > 0) {
-                    const marginMessages = await this.addMargin(addMarginPairs);
+                if (changeMarginPairs?.length > 0) {
+                    const marginMessages = await this.changeMargin(changeMarginPairs);
                     messages.push(...marginMessages);
                 }
 
@@ -1137,30 +898,27 @@ export class TradingService {
         }
     }
 
-    async addMargin(pairs: Pair[]): Promise<string[]> {
+    async changeMargin(pairs: Pair[]): Promise<string[]> {
         if (pairs?.length > 0) {
             try {
                 const messages = [];
-                const liquidationPercent = 95;
-                const marginLimit = 20; // 100
-                const maxMargin = 500;
 
                 const uniquePairs = pairs.filter((pair, index, list) => {
                     return list.findIndex(item => `${item._id}` === `${pair._id}`) === index;
                 });
 
                 for (const pair of uniquePairs) {
-                    const needAddLongMargin = pair?.longLiquidatePercent > liquidationPercent && pair.longAllMargin < maxMargin;
-                    const needAddShortMargin = pair?.shortLiquidatePercent > liquidationPercent && pair.shortAllMargin < maxMargin;
+                    const needAddLongMargin = pair?.longLiquidatePercent > this.liquidationMaxPercent && pair.longAllMargin < this.maxMargin;
+                    const needAddShortMargin = pair?.shortLiquidatePercent > this.liquidationMaxPercent && pair.shortAllMargin < this.maxMargin;
 
-                    const longMarginValue = pair?.longMargin < marginLimit ? pair?.longMargin : marginLimit;
-                    const shortMarginValue = pair?.shortMargin < marginLimit ? pair?.shortMargin : marginLimit;
+                    const longAddMarginValue = pair?.longMargin < this.marginAddLimit ? pair?.longMargin : this.marginAddLimit;
+                    const shortAddMarginValue = pair?.shortMargin < this.marginAddLimit ? pair?.shortMargin : this.marginAddLimit;
 
                     if (needAddLongMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.addMargin(pair.symbol, longMarginValue, PositionType.LONG);
-                                messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [ADD] ${longMarginValue}`);
+                                await this.bybitService.addMargin(pair.symbol, longAddMarginValue, PositionType.LONG);
+                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [ADD] ${longAddMarginValue}`);
                                 break;
                         }
                     }
@@ -1168,8 +926,32 @@ export class TradingService {
                     if (needAddShortMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.addMargin(pair.symbol, shortMarginValue, PositionType.SHORT);
-                                messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [ADD] ${shortMarginValue}`);
+                                await this.bybitService.addMargin(pair.symbol, shortAddMarginValue, PositionType.SHORT);
+                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [ADD] ${shortAddMarginValue}`);
+                                break;
+                        }
+                    }
+
+                    const needRemoveLongMargin = pair?.longLiquidatePercent < this.liquidationMinPercent && pair.longAllMargin > this.minMargin;
+                    const needRemoveShortMargin = pair?.shortLiquidatePercent < this.liquidationMinPercent && pair.shortAllMargin > this.minMargin;
+
+                    const longRemoveMarginValue = pair?.longMargin < this.marginRemoveLimit ? pair?.longMargin : this.marginRemoveLimit;
+                    const shortRemoveMarginValue = pair?.shortMargin < this.marginRemoveLimit ? pair?.shortMargin : this.marginRemoveLimit;
+
+                    if (needRemoveLongMargin) {
+                        switch (pair.exchange) {
+                            case Exchange.BYBIT:
+                                await this.bybitService.removeMargin(pair.symbol, longRemoveMarginValue, PositionType.LONG);
+                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [REMOVE] ${longRemoveMarginValue}`);
+                                break;
+                        }
+                    }
+
+                    if (needRemoveShortMargin) {
+                        switch (pair.exchange) {
+                            case Exchange.BYBIT:
+                                await this.bybitService.removeMargin(pair.symbol, shortRemoveMarginValue, PositionType.SHORT);
+                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [REMOVE] ${shortRemoveMarginValue}`);
                                 break;
                         }
                     }

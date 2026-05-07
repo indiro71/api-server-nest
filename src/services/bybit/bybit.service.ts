@@ -58,6 +58,14 @@ export class BybitService {
     }
 
     async addMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
+        return this.changeMargin(symbol, margin, positionIdx);
+    }
+
+    async removeMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
+        return this.changeMargin(symbol, -Math.abs(margin), positionIdx);
+    }
+
+    private async changeMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
         try {
             const result = await this.client.addOrReduceMargin({
                 category: CategoryType.LINEAR,
@@ -72,7 +80,7 @@ export class BybitService {
 
             return result;
         } catch (e) {
-            console.error('Bybit addMargin error:', e.response?.data || e.message);
+            console.error('Bybit changeMargin error:', e.response?.data || e.message);
             throw e;
         }
     }
