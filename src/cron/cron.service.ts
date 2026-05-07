@@ -132,15 +132,6 @@ export class CronService {
         }
     }
 
-    // @Cron('1 0 * * *')
-    async tradingCronClearStatistics() {
-        try {
-            await this.tradingService.clearStatistics();
-        } catch (e) {
-            this.logger.error('TradingCron error', e.message);
-        }
-    }
-
     @Cron(CronExpression.EVERY_HOUR)
     async tradingCronCheckBuy() {
         try {
