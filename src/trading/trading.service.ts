@@ -59,6 +59,7 @@ export class TradingService {
     private minMargin: number;
     private dailyProfit: Record<string, number>;
     private dailyTransactions: Record<string, number>;
+    private nightMessages: string[];
 
     constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
         this.isTraded = false;
@@ -72,15 +73,16 @@ export class TradingService {
         this.bookCount = 0;
         this.autoBuyCount = 0;
         this.warningPercent = 100;
-        this.liquidationMaxPercent = 95;
+        this.liquidationMaxPercent = 90;
         this.liquidationMinPercent = 60;
-        this.marginAddLimit = 20; // 100
-        this.marginRemoveLimit = 20; // 100
-        this.maxMargin = 500;
+        this.marginAddLimit = 80;
+        this.marginRemoveLimit = 40;
+        this.maxMargin = 700;
         this.minMargin = 100;
         this.stopBuyLongLimit = 48;
         this.stopBuyShortLimit = 48;
         this.marginDifference = 15;
+        this.nightMessages = [];
         this.inited();
         this.listenTg();
     }
@@ -761,6 +763,10 @@ export class TradingService {
                         const longPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.LONG);
                         const shortPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.SHORT);
 
+                        pair.currentPrice = pairCurrentPrice;
+                        pair.longPrice = longPosition?.holdAvgPrice || 0;
+                        pair.longMargin = longPosition?.oim || 0;
+
                         const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
                         const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;
                         const longLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition?.liquidatePrice));
@@ -768,9 +774,6 @@ export class TradingService {
 
                         const allPositionIsMinimal = pair.longMargin < this.stopBuyLongLimit && pair.shortMargin < this.stopBuyShortLimit;
 
-                        pair.currentPrice = pairCurrentPrice;
-                        pair.longPrice = longPosition?.holdAvgPrice || 0;
-                        pair.longMargin = longPosition?.oim || 0;
                         pair.longAllMargin = longPosition?.im || 0;
                         pair.shortPrice = shortPosition?.holdAvgPrice || 0;
                         pair.shortMargin = shortPosition?.oim || 0;
@@ -884,8 +887,15 @@ export class TradingService {
                     messages.push(...marginMessages);
                 }
 
-                if (messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
+                if ((this.nightMessages?.length > 0 || messages?.length > 0) && (this.isWorkingTime() || this.sendNightStat)) {
+                    if (this.nightMessages?.length > 0) {
+                        messages.push('🌙 Night notifications:\n');
+                        messages.push(...this.nightMessages);
+                        this.nightMessages = [];
+                    }
                     await this.telegramService.sendMessage(messages.join('\n\n'));
+                } else {
+                    this.nightMessages.push(...messages);
                 }
             }
         } catch (e) {
@@ -961,7 +971,7 @@ export class TradingService {
             } catch (err) {
                 console.error(err?.message);
                 if (this.isWorkingTime()) {
-                    await this.telegramService.sendMessage(`Ошибка addMargin: ${err.message}`);
+                    await this.telegramService.sendMessage(`Ошибка changeMargin: ${err.message}`);
                 }
 
                 return [];
