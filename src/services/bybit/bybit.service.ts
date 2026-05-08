@@ -67,10 +67,11 @@ export class BybitService {
 
     private async changeMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
         try {
+            const marginValue = this.formatMargin(margin);
             const result = await this.client.addOrReduceMargin({
                 category: CategoryType.LINEAR,
                 symbol,
-                margin: `${margin}`,
+                margin: marginValue,
                 ...(positionIdx !== undefined ? { positionIdx } : {}),
             } as any);
 
@@ -83,5 +84,16 @@ export class BybitService {
             console.error('Bybit changeMargin error:', e.response?.data || e.message);
             throw e;
         }
+    }
+
+    private formatMargin(margin: number): string {
+        const sign = margin < 0 ? -1 : 1;
+        const value = Math.floor(Math.abs(margin));
+
+        if (!value) {
+            throw new Error('Margin value is too small');
+        }
+
+        return `${sign * value}`;
     }
 }
