@@ -928,7 +928,7 @@ export class TradingService {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
                                 await this.bybitService.addMargin(pair.symbol, longAddMarginValue, PositionType.LONG);
-                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [ADD] ${longAddMarginValue}`);
+                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [ADD] [${Math.floor(longAddMarginValue)}]`);
                                 break;
                         }
                     }
@@ -937,7 +937,7 @@ export class TradingService {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
                                 await this.bybitService.addMargin(pair.symbol, shortAddMarginValue, PositionType.SHORT);
-                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [ADD] ${shortAddMarginValue}`);
+                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [ADD] [${Math.floor(shortAddMarginValue)}]`);
                                 break;
                         }
                     }
@@ -952,7 +952,7 @@ export class TradingService {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
                                 await this.bybitService.removeMargin(pair.symbol, longRemoveMarginValue, PositionType.LONG);
-                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [REMOVE] ${longRemoveMarginValue}`);
+                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [REMOVE] [${Math.floor(longRemoveMarginValue)}]`);
                                 break;
                         }
                     }
@@ -961,7 +961,7 @@ export class TradingService {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
                                 await this.bybitService.removeMargin(pair.symbol, shortRemoveMarginValue, PositionType.SHORT);
-                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [REMOVE] ${shortRemoveMarginValue}`);
+                                messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [REMOVE] [${Math.floor(shortRemoveMarginValue)}]`);
                                 break;
                         }
                     }
