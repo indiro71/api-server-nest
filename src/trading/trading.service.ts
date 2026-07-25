@@ -10,6 +10,7 @@ import { BybitService } from '../services/bybit/bybit.service';
 import { Exchange, Position } from './trading.interfaces';
 import { getBybitPositions, getMexcPositions } from './trading.utils';
 import { Pair } from './pair/schemas/pair.schema';
+import { PairGateway } from './pair/pair.gateway';
 
 /* tg commands---------------
 togglemonitoring - Toggle Monitoring Price
@@ -61,7 +62,7 @@ export class TradingService {
     private dailyTransactions: Record<string, number>;
     private nightMessages: string[];
 
-    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
+    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pairGateway: PairGateway) {
         this.isTraded = false;
         this.isMonitoring = false;
         this.buyOnRise = false;
@@ -264,67 +265,71 @@ export class TradingService {
     }
 
     async listenTg() {
-        await this.telegramService.bot.onText(/\/stat/, async () => {
+        if (!this.telegramService.isEnabled || !this.telegramService.bot) return;
+
+        const bot = this.telegramService.bot;
+
+        await bot.onText(/\/stat/, async () => {
             await this.sendStatistics();
         });
-        await this.telegramService.bot.onText(/\/enabletrade/, async () => {
+        await bot.onText(/\/enabletrade/, async () => {
             await this.enableTrade();
         });
-        await this.telegramService.bot.onText(/\/togglerise/, async () => {
+        await bot.onText(/\/togglerise/, async () => {
             await this.toggleRise();
         });
-        await this.telegramService.bot.onText(/\/togglemonitoring/, async () => {
+        await bot.onText(/\/togglemonitoring/, async () => {
             await this.toggleMonitoring();
         });
-        await this.telegramService.bot.onText(/\/togglestat/, async () => {
+        await bot.onText(/\/togglestat/, async () => {
             await this.toggleSendSellStat();
         });
-        await this.telegramService.bot.onText(/\/togglenightstat/, async () => {
+        await bot.onText(/\/togglenightstat/, async () => {
             await this.toggleSendNightStat();
         });
-        await this.telegramService.bot.onText(/\/disabletrade/, async () => {
+        await bot.onText(/\/disabletrade/, async () => {
             await this.disableTrade();
         });
-        await this.telegramService.bot.onText(/\/tradestatus/, async () => {
+        await bot.onText(/\/tradestatus/, async () => {
             await this.tradeStatus();
         });
-        await this.telegramService.bot.onText(/\/istraded/, async () => {
+        await bot.onText(/\/istraded/, async () => {
             await this.sendIsTraded();
         });
-        await this.telegramService.bot.onText(/\/dailyprofit/, async () => {
+        await bot.onText(/\/dailyprofit/, async () => {
             await this.sendDailyProfit();
         });
-        await this.telegramService.bot.onText(/\/lastvalue (.+)/, async (msg, match) => {
+        await bot.onText(/\/lastvalue (.+)/, async (msg, match) => {
             await this.updateLastValue(match[1]);
         });
-        await this.telegramService.bot.onText(/\/setquantity (.+)/, async (msg, match) => {
+        await bot.onText(/\/setquantity (.+)/, async (msg, match) => {
             await this.setQuantity(match[1]);
         });
-        await this.telegramService.bot.onText(/\/setwarningpercent (.+)/, async (msg, match) => {
+        await bot.onText(/\/setwarningpercent (.+)/, async (msg, match) => {
             await this.setWarningPercent(match[1]);
         });
-        await this.telegramService.bot.onText(/\/sellandbuy(?: (.+))?/, async (msg, match) => {
+        await bot.onText(/\/sellandbuy(?: (.+))?/, async (msg, match) => {
             await this.sellAndBuy(match ? match[1] : 3000);
         });
-        await this.telegramService.bot.onText(/\/buyandsell(?: (.+))?/, async (msg, match) => {
+        await bot.onText(/\/buyandsell(?: (.+))?/, async (msg, match) => {
             await this.buyAndSell(match ? match[1] : null);
         });
-        await this.telegramService.bot.onText(/\/sellorder(?: (.+))?/, async (msg, match) => {
+        await bot.onText(/\/sellorder(?: (.+))?/, async (msg, match) => {
             await this.sellOrder(match ? match[1] : 3000);
         });
-        await this.telegramService.bot.onText(/\/buyorder(?: (.+))?/, async (msg, match) => {
+        await bot.onText(/\/buyorder(?: (.+))?/, async (msg, match) => {
             await this.buyOrder(match ? match[1] : 5000);
         });
-        await this.telegramService.bot.onText(/\/setnewquantity (.+)/, async (msg, match) => {
+        await bot.onText(/\/setnewquantity (.+)/, async (msg, match) => {
             await this.setQuantity(match[1], true);
         });
-        await this.telegramService.bot.onText(/\/setbc (.+)/, async (msg, match) => {
+        await bot.onText(/\/setbc (.+)/, async (msg, match) => {
             await this.setBuyCoefficient(match[1]);
         });
-        await this.telegramService.bot.onText(/\/setsp (.+)/, async (msg, match) => {
+        await bot.onText(/\/setsp (.+)/, async (msg, match) => {
             await this.setSellPercent(match[1]);
         });
-        await this.telegramService.bot.onText(/\/setstrategy (.+)/, async (msg, match) => {
+        await bot.onText(/\/setstrategy (.+)/, async (msg, match) => {
             await this.setStrategy(match[1]);
         });
     }
@@ -743,6 +748,7 @@ export class TradingService {
 
                 const messages = [];
                 const changeMarginPairs: Pair[] = [];
+                const updatedPairs: Pair[] = [];
 
                 if (bybitPositions?.length > 0) {
                     for (const pair of pairs) {
@@ -879,8 +885,11 @@ export class TradingService {
                         }
 
                         await this.pairService.update(pair._id, pair);
+                        updatedPairs.push(pair);
                     }
                 }
+
+                this.pairGateway.emitPairsUpdate(updatedPairs);
 
                 if (changeMarginPairs?.length > 0) {
                     const marginMessages = await this.changeMargin(changeMarginPairs);
