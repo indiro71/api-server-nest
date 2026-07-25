@@ -24,7 +24,7 @@ export class PairGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const token = this.getHandshakeToken(client);
 
     if (!token) {
-      client.disconnect(true);
+      this.disconnectUnauthorized(client);
       return;
     }
 
@@ -35,7 +35,7 @@ export class PairGateway implements OnGatewayConnection, OnGatewayDisconnect {
         namespace: '/scanprices/pairs',
       });
     } catch (error) {
-      client.disconnect(true);
+      this.disconnectUnauthorized(client);
     }
   }
 
@@ -66,5 +66,12 @@ export class PairGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     return token.replace(/^Bearer\s+/i, '');
+  }
+
+  private disconnectUnauthorized(client: Socket): void {
+    client.emit('auth:error', {
+      message: 'User not authorized',
+    });
+    setTimeout(() => client.disconnect(true), 0);
   }
 }
