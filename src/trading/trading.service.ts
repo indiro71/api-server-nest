@@ -10,6 +10,7 @@ import { BybitService } from '../services/bybit/bybit.service';
 import { Exchange, Position } from './trading.interfaces';
 import { getBybitPositions, getMexcPositions } from './trading.utils';
 import { Pair } from './pair/schemas/pair.schema';
+import { PairGateway } from './pair/pair.gateway';
 
 /* tg commands---------------
 togglemonitoring - Toggle Monitoring Price
@@ -61,7 +62,7 @@ export class TradingService {
     private dailyTransactions: Record<string, number>;
     private nightMessages: string[];
 
-    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService) {
+    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pairGateway: PairGateway) {
         this.isTraded = false;
         this.isMonitoring = false;
         this.buyOnRise = false;
@@ -743,6 +744,7 @@ export class TradingService {
 
                 const messages = [];
                 const changeMarginPairs: Pair[] = [];
+                const updatedPairs: Pair[] = [];
 
                 if (bybitPositions?.length > 0) {
                     for (const pair of pairs) {
@@ -879,8 +881,11 @@ export class TradingService {
                         }
 
                         await this.pairService.update(pair._id, pair);
+                        updatedPairs.push(pair);
                     }
                 }
+
+                this.pairGateway.emitPairsUpdate(updatedPairs);
 
                 if (changeMarginPairs?.length > 0) {
                     const marginMessages = await this.changeMargin(changeMarginPairs);
