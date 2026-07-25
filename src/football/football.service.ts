@@ -12,15 +12,19 @@ export class FootballService {
   }
 
   async listenTg() {
+    if (!this.telegramService.isEnabled || !this.telegramService.bot) return;
+
+    const bot = this.telegramService.bot;
+
     // Список матчей на сегодня
-    await this.telegramService.bot.onText(/\/matches/, async (msg) => {
+    await bot.onText(/\/matches/, async (msg) => {
       const chatId = msg.chat.id;
       const text = await this.footballDataService.matches();
       await this.telegramService.sendMessage(text, chatId);
     });
 
     // Список топовых матчей на сегодня
-    await this.telegramService.bot.onText(/\/topmatches/, async (msg) => {
+    await bot.onText(/\/topmatches/, async (msg) => {
       const chatId = msg.chat.id;
       const text = await this.footballDataService.topMatches();
       await this.telegramService.sendMessage(text, chatId);
