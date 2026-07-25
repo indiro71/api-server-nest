@@ -6,14 +6,17 @@ import {
   Param,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import { ObjectId } from 'mongoose';
 import { PairService } from './pair.service';
 import { CreatePairDto } from './dto/create-pair.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Pair } from './schemas/pair.schema';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
 @ApiTags('Pair')
+@UseGuards(JwtAuthGuard)
 @Controller('/scanprices/pairs')
 export class PairController {
   constructor(private pairService: PairService) {}

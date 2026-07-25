@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateUserDto } from '../user/dto/create-user.dto';
 import { AuthService } from './auth.service';
@@ -13,7 +13,7 @@ export class AuthController {
   }
 
   @Post('/register')
-  register(@Body() userDto: CreateUserDto) {
-    return this.authService.register(userDto);
+  register() {
+    throw new ForbiddenException({ message: 'Registration is disabled' });
   }
 }
