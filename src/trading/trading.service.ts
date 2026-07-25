@@ -265,67 +265,71 @@ export class TradingService {
     }
 
     async listenTg() {
-        await this.telegramService.bot.onText(/\/stat/, async () => {
+        if (!this.telegramService.isEnabled || !this.telegramService.bot) return;
+
+        const bot = this.telegramService.bot;
+
+        await bot.onText(/\/stat/, async () => {
             await this.sendStatistics();
         });
-        await this.telegramService.bot.onText(/\/enabletrade/, async () => {
+        await bot.onText(/\/enabletrade/, async () => {
             await this.enableTrade();
         });
-        await this.telegramService.bot.onText(/\/togglerise/, async () => {
+        await bot.onText(/\/togglerise/, async () => {
             await this.toggleRise();
         });
-        await this.telegramService.bot.onText(/\/togglemonitoring/, async () => {
+        await bot.onText(/\/togglemonitoring/, async () => {
             await this.toggleMonitoring();
         });
-        await this.telegramService.bot.onText(/\/togglestat/, async () => {
+        await bot.onText(/\/togglestat/, async () => {
             await this.toggleSendSellStat();
         });
-        await this.telegramService.bot.onText(/\/togglenightstat/, async () => {
+        await bot.onText(/\/togglenightstat/, async () => {
             await this.toggleSendNightStat();
         });
-        await this.telegramService.bot.onText(/\/disabletrade/, async () => {
+        await bot.onText(/\/disabletrade/, async () => {
             await this.disableTrade();
         });
-        await this.telegramService.bot.onText(/\/tradestatus/, async () => {
+        await bot.onText(/\/tradestatus/, async () => {
             await this.tradeStatus();
         });
-        await this.telegramService.bot.onText(/\/istraded/, async () => {
+        await bot.onText(/\/istraded/, async () => {
             await this.sendIsTraded();
         });
-        await this.telegramService.bot.onText(/\/dailyprofit/, async () => {
+        await bot.onText(/\/dailyprofit/, async () => {
             await this.sendDailyProfit();
         });
-        await this.telegramService.bot.onText(/\/lastvalue (.+)/, async (msg, match) => {
+        await bot.onText(/\/lastvalue (.+)/, async (msg, match) => {
             await this.updateLastValue(match[1]);
         });
-        await this.telegramService.bot.onText(/\/setquantity (.+)/, async (msg, match) => {
+        await bot.onText(/\/setquantity (.+)/, async (msg, match) => {
             await this.setQuantity(match[1]);
         });
-        await this.telegramService.bot.onText(/\/setwarningpercent (.+)/, async (msg, match) => {
+        await bot.onText(/\/setwarningpercent (.+)/, async (msg, match) => {
             await this.setWarningPercent(match[1]);
         });
-        await this.telegramService.bot.onText(/\/sellandbuy(?: (.+))?/, async (msg, match) => {
+        await bot.onText(/\/sellandbuy(?: (.+))?/, async (msg, match) => {
             await this.sellAndBuy(match ? match[1] : 3000);
         });
-        await this.telegramService.bot.onText(/\/buyandsell(?: (.+))?/, async (msg, match) => {
+        await bot.onText(/\/buyandsell(?: (.+))?/, async (msg, match) => {
             await this.buyAndSell(match ? match[1] : null);
         });
-        await this.telegramService.bot.onText(/\/sellorder(?: (.+))?/, async (msg, match) => {
+        await bot.onText(/\/sellorder(?: (.+))?/, async (msg, match) => {
             await this.sellOrder(match ? match[1] : 3000);
         });
-        await this.telegramService.bot.onText(/\/buyorder(?: (.+))?/, async (msg, match) => {
+        await bot.onText(/\/buyorder(?: (.+))?/, async (msg, match) => {
             await this.buyOrder(match ? match[1] : 5000);
         });
-        await this.telegramService.bot.onText(/\/setnewquantity (.+)/, async (msg, match) => {
+        await bot.onText(/\/setnewquantity (.+)/, async (msg, match) => {
             await this.setQuantity(match[1], true);
         });
-        await this.telegramService.bot.onText(/\/setbc (.+)/, async (msg, match) => {
+        await bot.onText(/\/setbc (.+)/, async (msg, match) => {
             await this.setBuyCoefficient(match[1]);
         });
-        await this.telegramService.bot.onText(/\/setsp (.+)/, async (msg, match) => {
+        await bot.onText(/\/setsp (.+)/, async (msg, match) => {
             await this.setSellPercent(match[1]);
         });
-        await this.telegramService.bot.onText(/\/setstrategy (.+)/, async (msg, match) => {
+        await bot.onText(/\/setstrategy (.+)/, async (msg, match) => {
             await this.setStrategy(match[1]);
         });
     }
