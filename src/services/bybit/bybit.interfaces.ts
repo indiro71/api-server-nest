@@ -13,6 +13,12 @@ export enum OrderType {
     Market = 'Market',
 }
 
+export enum OrderTimeInForce {
+    GTC = 'GTC',
+    IOC = 'IOC',
+    FOK = 'FOK',
+}
+
 export enum OrderStatus {
     Created = 'Created',
     New = 'New',

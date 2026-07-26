@@ -6,6 +6,7 @@ import { PairService } from './pair.service';
 import { Order, OrderSchema } from '../order/schemas/order.schema';
 import { PairGateway } from './pair.gateway';
 import { AuthModule } from '../../auth/auth.module';
+import { BybitModule } from '../../services/bybit/bybit.module';
 
 @Module({
   controllers: [PairController],
@@ -14,6 +15,7 @@ import { AuthModule } from '../../auth/auth.module';
     MongooseModule.forFeature([{ name: Pair.name, schema: PairSchema }]),
     MongooseModule.forFeature([{ name: Order.name, schema: OrderSchema }]),
     AuthModule,
+    BybitModule,
   ],
   exports: [PairService, PairGateway],
 })
