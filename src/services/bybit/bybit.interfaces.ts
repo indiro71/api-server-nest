@@ -13,6 +13,12 @@ export enum OrderType {
     Market = 'Market',
 }
 
+export enum OrderTimeInForce {
+    GTC = 'GTC',
+    IOC = 'IOC',
+    FOK = 'FOK',
+}
+
 export enum OrderStatus {
     Created = 'Created',
     New = 'New',
@@ -91,6 +97,28 @@ export interface IBybitOrder {
     updatedTime: string;
 }
 
+export interface IBybitClosedPnl {
+    symbol: string;
+    orderId: string;
+    side: string;
+    qty: string;
+    orderPrice: string;
+    orderType: string;
+    execType: string;
+    closedSize: string;
+    openFee: string;
+    closeFee: string;
+    cumEntryValue: string;
+    avgEntryPrice: string;
+    cumExitValue: string;
+    avgExitPrice: string;
+    closedPnl: string;
+    fillCount: string;
+    leverage: string;
+    createdTime: string;
+    updatedTime: string;
+}
+
 export interface IBybitApiResponse<T> {
     retCode: number;
     retMsg: string;
@@ -105,4 +133,7 @@ export interface IBybitOrdersResponse extends IBybitApiResponse<{ list: IBybitOr
 }
 
 export interface IBybitTickersResponse extends IBybitApiResponse<{ list: IBybitTicker[] }> {
+}
+
+export interface IBybitClosedPnlResponse extends IBybitApiResponse<{ list: IBybitClosedPnl[] }> {
 }
