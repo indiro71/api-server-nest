@@ -13,6 +13,14 @@ interface TradingSignalsPushPayload {
   title?: string;
 }
 
+interface PushMessagePayload {
+  badge?: number;
+  body: string;
+  showNotification?: boolean;
+  tag?: string;
+  title: string;
+}
+
 @Injectable()
 export class PushService {
   private readonly publicKey = process.env.WEB_PUSH_PUBLIC_KEY;
@@ -93,17 +101,41 @@ export class PushService {
     }
 
     await Promise.all(
-      subscriptions.map((subscription) => this.sendTradingSignalsPayload(subscription, {
-        activeButtonsCount,
-        title: payload.title,
+      subscriptions.map((subscription) => this.sendPushPayload(subscription, {
+        badge: activeButtonsCount,
+        body: activeButtonsCount > 0
+          ? `Активных торговых сигналов: ${activeButtonsCount}`
+          : 'Активных торговых сигналов нет',
+        showNotification: activeButtonsCount > 0,
+        tag: 'trading-signals',
+        title: payload.title || 'Trading monitor',
       })),
     );
   }
 
-  private async sendTradingSignalsPayload(
-    subscription: PushSubscriptionDocument,
-    payload: TradingSignalsPushPayload,
-  ) {
+  async sendMessage(title: string, message: string, tag = 'trading-message') {
+    if (!this.publicKey || !this.privateKey) {
+      return;
+    }
+
+    const subscriptions = await this.subscriptionModel.find();
+
+    if (!subscriptions.length) {
+      return;
+    }
+
+    const payload: PushMessagePayload = {
+      body: this.truncateMessage(message),
+      tag,
+      title,
+    };
+
+    await Promise.all(
+      subscriptions.map((subscription) => this.sendPushPayload(subscription, payload)),
+    );
+  }
+
+  private async sendPushPayload(subscription: PushSubscriptionDocument, payload: PushMessagePayload) {
     try {
       await webPush.sendNotification(
         {
@@ -113,14 +145,7 @@ export class PushService {
             p256dh: subscription.p256dh,
           },
         },
-        JSON.stringify({
-          badge: payload.activeButtonsCount,
-          body: payload.activeButtonsCount > 0
-            ? `Активных торговых сигналов: ${payload.activeButtonsCount}`
-            : 'Активных торговых сигналов нет',
-          tag: 'trading-signals',
-          title: payload.title || 'Trading monitor',
-        }),
+        JSON.stringify(payload),
       );
     } catch (error) {
       const statusCode = error?.statusCode;
@@ -132,5 +157,15 @@ export class PushService {
 
       console.error('Web Push send error:', error?.body || error?.message);
     }
+  }
+
+  private truncateMessage(message: string) {
+    const maxLength = 1800;
+
+    if (!message || message.length <= maxLength) {
+      return message || '';
+    }
+
+    return `${message.slice(0, maxLength)}...`;
   }
 }

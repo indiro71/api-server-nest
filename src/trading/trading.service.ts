@@ -791,7 +791,10 @@ export class TradingService {
                         pair.shortLiquidatePercent = shortLiquidationPercent;
 
                         if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
-                            await this.telegramService.sendMessage(`🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`);
+                            const warningMessage = `🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`;
+
+                            await this.telegramService.sendMessage(warningMessage);
+                            await this.pushService.sendMessage('Trading monitor', warningMessage);
                         }
 
                         if (pair.longMargin > this.marginDifference && (pair.longLiquidatePercent > this.liquidationMaxPercent || pair.longLiquidatePercent < this.liquidationMinPercent)) {
@@ -906,7 +909,10 @@ export class TradingService {
                         messages.push(...this.nightMessages);
                         this.nightMessages = [];
                     }
-                    await this.telegramService.sendMessage(messages.join('\n\n'));
+                    const notificationMessage = messages.join('\n\n');
+
+                    await this.telegramService.sendMessage(notificationMessage);
+                    await this.pushService.sendMessage('Trading monitor', notificationMessage);
                 } else {
                     this.nightMessages.push(...messages);
                 }
@@ -1037,7 +1043,10 @@ export class TradingService {
                 }
 
                 if (messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
-                    await this.telegramService.sendMessage(messages.join('\n\n'));
+                    const notificationMessage = messages.join('\n\n');
+
+                    await this.telegramService.sendMessage(notificationMessage);
+                    await this.pushService.sendMessage('Trading monitor', notificationMessage);
                 }
             } catch (err) {
                 console.error(err?.message);
@@ -1064,7 +1073,10 @@ export class TradingService {
                 }
 
                 if (messages?.length > 0 && (this.isWorkingTime() || this.sendNightStat)) {
-                    await this.telegramService.sendMessage(messages.join('\n\n'));
+                    const notificationMessage = messages.join('\n\n');
+
+                    await this.telegramService.sendMessage(notificationMessage);
+                    await this.pushService.sendMessage('Trading monitor', notificationMessage);
                 }
             } catch (err) {
                 console.error(err?.message);
