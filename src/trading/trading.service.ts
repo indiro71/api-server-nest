@@ -11,6 +11,7 @@ import { Exchange, Position } from './trading.interfaces';
 import { getBybitPositions, getMexcPositions } from './trading.utils';
 import { Pair } from './pair/schemas/pair.schema';
 import { PairGateway } from './pair/pair.gateway';
+import { PushService } from '../push/push.service';
 
 /* tg commands---------------
 togglemonitoring - Toggle Monitoring Price
@@ -62,7 +63,7 @@ export class TradingService {
     private dailyTransactions: Record<string, number>;
     private nightMessages: string[];
 
-    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pairGateway: PairGateway) {
+    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pairGateway: PairGateway, private readonly pushService: PushService) {
         this.isTraded = false;
         this.isMonitoring = false;
         this.buyOnRise = false;
@@ -890,6 +891,9 @@ export class TradingService {
                 }
 
                 this.pairGateway.emitPairsUpdate(updatedPairs);
+                await this.pushService.notifyTradingSignals({
+                    activeButtonsCount: this.getActiveTradingButtonsCount(updatedPairs),
+                });
 
                 if (changeMarginPairs?.length > 0) {
                     const marginMessages = await this.changeMargin(changeMarginPairs);
@@ -915,6 +919,34 @@ export class TradingService {
         } finally {
             this.isMonitoring = false;
         }
+    }
+
+    private getActiveTradingButtonsCount(pairs: Pair[]): number {
+        return pairs.reduce((count, pair) => {
+            if (pair.exchange !== Exchange.BYBIT) {
+                return count;
+            }
+
+            let pairButtonsCount = 0;
+
+            if (pair.longPercent > 0) {
+                pairButtonsCount += 1;
+            }
+
+            if (pair.shortPercent > 0) {
+                pairButtonsCount += 1;
+            }
+
+            if (pair.nextBuyLongPrice && pair.currentPrice < pair.nextBuyLongPrice) {
+                pairButtonsCount += 1;
+            }
+
+            if (pair.nextBuyShortPrice && pair.currentPrice > pair.nextBuyShortPrice) {
+                pairButtonsCount += 1;
+            }
+
+            return count + pairButtonsCount;
+        }, 0);
     }
 
     async changeMargin(pairs: Pair[]): Promise<string[]> {
