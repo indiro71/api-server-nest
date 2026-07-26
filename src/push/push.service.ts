@@ -15,10 +15,10 @@ interface TradingSignalsPushPayload {
 
 interface PushMessagePayload {
   badge?: number;
-  body: string;
+  body?: string;
   showNotification?: boolean;
   tag?: string;
-  title: string;
+  title?: string;
 }
 
 @Injectable()
@@ -103,12 +103,8 @@ export class PushService {
     await Promise.all(
       subscriptions.map((subscription) => this.sendPushPayload(subscription, {
         badge: activeButtonsCount,
-        body: activeButtonsCount > 0
-          ? `Активных торговых сигналов: ${activeButtonsCount}`
-          : 'Активных торговых сигналов нет',
-        showNotification: activeButtonsCount > 0,
+        showNotification: false,
         tag: 'trading-signals',
-        title: payload.title || 'Trading monitor',
       })),
     );
   }
