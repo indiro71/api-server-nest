@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { RestClientV5 } from 'bybit-api';
 import {
     CategoryType,
+    IBybitClosedPnl,
+    IBybitClosedPnlResponse,
     IBybitOrdersResponse,
+    IBybitPosition,
     IBybitPositionsResponse,
     OrderSide,
     OrderTimeInForce,
@@ -18,13 +21,32 @@ interface OpenMarketPositionParams {
     positionIdx: 1 | 2;
 }
 
-interface OpenMarketPositionResult {
+export interface OpenMarketPositionResult {
     amount: number;
     leverage: number;
     orderValue: number;
     price: number;
     qty: string;
     result: any;
+}
+
+interface CloseMarketPositionParams {
+    symbol: string;
+    side: OrderSide;
+    positionIdx: 1 | 2;
+}
+
+export interface CloseMarketPositionResult {
+    avgEntryPrice: string;
+    closedPnl: IBybitClosedPnl | null;
+    orderId?: string;
+    positionIdx: 1 | 2;
+    positionValue: string;
+    qty: string;
+    result: any;
+    side: OrderSide;
+    symbol: string;
+    unrealisedPnl: string;
 }
 
 @Injectable()
@@ -123,6 +145,58 @@ export class BybitService {
         }
     }
 
+    async closeMarketPosition({
+        symbol,
+        side,
+        positionIdx,
+    }: CloseMarketPositionParams): Promise<CloseMarketPositionResult> {
+        try {
+            const position = await this.getOpenPosition(symbol, positionIdx);
+            const qty = position.size;
+            const result = await this.client.submitOrder({
+                category: CategoryType.LINEAR,
+                symbol,
+                side,
+                orderType: OrderType.Market,
+                qty,
+                timeInForce: OrderTimeInForce.IOC,
+                positionIdx,
+                reduceOnly: true,
+            });
+
+            if (result?.retCode) {
+                throw new Error(result.retMsg);
+            }
+
+            const orderId = result?.result?.orderId;
+
+            await this.waitForPositionClose(symbol, positionIdx);
+
+            const closedPnl = orderId
+                ? await this.waitForClosedPnl(symbol, orderId).catch((error) => {
+                    console.error('Bybit waitForClosedPnl error:', error.response?.data || error.message);
+                    return null;
+                })
+                : null;
+
+            return {
+                avgEntryPrice: position.avgPrice,
+                closedPnl,
+                orderId,
+                positionIdx,
+                positionValue: position.positionValue,
+                qty,
+                result,
+                side,
+                symbol,
+                unrealisedPnl: position.unrealisedPnl,
+            };
+        } catch (e) {
+            console.error('Bybit closeMarketPosition error:', e.response?.data || e.message);
+            throw e;
+        }
+    }
+
     async addMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
         return this.changeMargin(symbol, margin, positionIdx);
     }
@@ -182,6 +256,78 @@ export class BybitService {
         return instrument;
     }
 
+    private async getOpenPosition(symbol: string, positionIdx: 1 | 2): Promise<IBybitPosition> {
+        const positions = await this.getPositions(symbol);
+
+        if (!positions) {
+            throw new Error('Bybit positions response is empty');
+        }
+
+        if (positions.retCode) {
+            throw new Error(positions.retMsg);
+        }
+
+        const position = positions.result?.list?.find((item) => {
+            return item.positionIdx === positionIdx && Number(item.size) > 0;
+        });
+
+        if (!position) {
+            throw new Error('Open Bybit position not found');
+        }
+
+        return position;
+    }
+
+    private async waitForPositionClose(symbol: string, positionIdx: 1 | 2): Promise<void> {
+        const attempts = 12;
+        const delayMs = 500;
+
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+            await this.sleep(delayMs);
+
+            const positions = await this.getPositions(symbol);
+            const position = positions?.result?.list?.find((item) => item.positionIdx === positionIdx);
+
+            if (!position || Number(position.size) <= 0) {
+                return;
+            }
+        }
+
+        throw new Error('Bybit position close was not confirmed');
+    }
+
+    private async waitForClosedPnl(symbol: string, orderId: string): Promise<IBybitClosedPnl | null> {
+        const attempts = 10;
+        const delayMs = 500;
+
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+            const closedPnlResponse = await this.getClosedPnl(symbol);
+            const closedPnl = closedPnlResponse.result?.list?.find((item) => item.orderId === orderId);
+
+            if (closedPnl) {
+                return closedPnl;
+            }
+
+            await this.sleep(delayMs);
+        }
+
+        return null;
+    }
+
+    private async getClosedPnl(symbol: string): Promise<IBybitClosedPnlResponse> {
+        const result = await this.client.getClosedPnL({
+            category: CategoryType.LINEAR,
+            symbol,
+            limit: 20,
+        } as any);
+
+        if (result?.retCode) {
+            throw new Error(result.retMsg);
+        }
+
+        return result as IBybitClosedPnlResponse;
+    }
+
     private calculateOrderQty(orderValue: number, price: number, lotSizeFilter?: any): string {
         if (!Number.isFinite(orderValue) || orderValue <= 0) {
             throw new Error('Order value is invalid');
@@ -229,5 +375,9 @@ export class BybitService {
         }
 
         return step.replace(/0+$/, '').split('.')[1]?.length || 0;
+    }
+
+    private sleep(delayMs: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, delayMs));
     }
 }
