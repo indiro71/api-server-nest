@@ -981,14 +981,24 @@ export class TradingService {
         if (side === PositionType.LONG) {
             const sellPrice = Number(pair.sellLongPrice);
             const margin = Number(pair.longMargin);
+            const percent = Number(pair.longPercent);
+            const hasReachedSellPrice =
+                Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice > sellPrice;
+            const hasProfitableLargeMargin =
+                Number.isFinite(percent) && percent > 0 && Number.isFinite(margin) && margin > 50;
 
-            return Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice > sellPrice;
+            return hasReachedSellPrice || hasProfitableLargeMargin;
         }
 
         const sellPrice = Number(pair.sellShortPrice);
         const margin = Number(pair.shortMargin);
+        const percent = Number(pair.shortPercent);
+        const hasReachedSellPrice =
+            Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice < sellPrice;
+        const hasProfitableLargeMargin =
+            Number.isFinite(percent) && percent > 0 && Number.isFinite(margin) && margin > 50;
 
-        return Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice < sellPrice;
+        return hasReachedSellPrice || hasProfitableLargeMargin;
     }
 
     async changeMargin(pairs: Pair[]): Promise<string[]> {
