@@ -43,6 +43,20 @@ ERROR_LOG_RETENTION_DAYS=90
 
 If `ERROR_LOG_VIEW_TOKEN` is not set, error log endpoints are available only with the usual Bearer JWT authorization.
 
+## Telegram Proxy
+
+Use a SOCKS5 proxy only for Telegram Bot API requests:
+
+```bash
+TELEGRAM_PROXY_URL=socks5h://name:pass@1.2.3.4:1080
+```
+
+`socks5h` resolves `api.telegram.org` through the proxy. Telegram polling can be disabled separately:
+
+```bash
+TELEGRAM_POLLING_ENABLED=false
+```
+
 ## Running the app
 
 ```bash
