@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as TelegramBot from 'node-telegram-bot-api';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import { ErrorLogService } from '../../error-log/error-log.service';
 
 interface TelegramQueuedMessage {
@@ -22,6 +23,8 @@ export class TelegramService {
   private queueLimit: number;
   private queue: TelegramQueuedMessage[];
   private queueProcessing: boolean;
+  private proxyUrl: string | null;
+  private proxyAgent: SocksProxyAgent | null;
 
   constructor(private readonly errorLogService: ErrorLogService) {
     this.bot = null;
@@ -33,6 +36,8 @@ export class TelegramService {
     this.queueLimit = this.resolveNumberEnv('TELEGRAM_QUEUE_LIMIT', DEFAULT_QUEUE_LIMIT);
     this.queue = [];
     this.queueProcessing = false;
+    this.proxyUrl = this.resolveProxyUrl();
+    this.proxyAgent = this.createProxyAgent(this.proxyUrl);
     this.initBot();
   }
 
@@ -52,11 +57,24 @@ export class TelegramService {
     }
 
     if (!this.inited) {
+      const requestOptions: any = {
+        timeout: this.requestTimeoutMs,
+      };
+
+      if (this.proxyAgent) {
+        requestOptions.agent = this.proxyAgent;
+        void this.errorLogService.captureMessage('Telegram proxy enabled', {
+          level: 'info',
+          source: 'telegram.proxy',
+          meta: {
+            proxy: this.getProxyLogInfo(),
+          },
+        });
+      }
+
       this.bot = new TelegramBot(process.env.TELEGRAM_API_KEY, {
         polling: this.pollingEnabled,
-        request: {
-          timeout: this.requestTimeoutMs,
-        },
+        request: requestOptions,
       });
 
       if (this.pollingEnabled) {
@@ -64,6 +82,9 @@ export class TelegramService {
           void this.errorLogService.capture(error, {
             level: 'error',
             source: 'telegram.polling',
+            meta: {
+              proxy: this.getProxyLogInfo(),
+            },
           });
         });
       }
@@ -181,6 +202,7 @@ export class TelegramService {
         source: 'telegram.send',
         meta: {
           chatId: chatId || process.env.CHAT_ID,
+          proxy: this.getProxyLogInfo(),
           text,
         },
       });
@@ -232,5 +254,55 @@ export class TelegramService {
     }
 
     return value;
+  }
+
+  private resolveProxyUrl(): string | null {
+    const proxyUrl = process.env.TELEGRAM_PROXY_URL?.trim();
+
+    return proxyUrl || null;
+  }
+
+  private createProxyAgent(proxyUrl: string | null): SocksProxyAgent | null {
+    if (!proxyUrl) {
+      return null;
+    }
+
+    try {
+      return new SocksProxyAgent(proxyUrl);
+    } catch (error) {
+      void this.errorLogService.capture(error, {
+        level: 'error',
+        source: 'telegram.proxy',
+        meta: {
+          proxy: this.getProxyLogInfo(proxyUrl),
+        },
+      });
+
+      return null;
+    }
+  }
+
+  private getProxyLogInfo(proxyUrl = this.proxyUrl) {
+    if (!proxyUrl) {
+      return {
+        enabled: false,
+      };
+    }
+
+    try {
+      const url = new URL(proxyUrl);
+
+      return {
+        enabled: true,
+        host: url.hostname,
+        port: url.port,
+        protocol: url.protocol.replace(':', ''),
+      };
+    } catch {
+      return {
+        enabled: true,
+        invalidUrl: true,
+      };
+    }
   }
 }

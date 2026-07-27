@@ -49,6 +49,7 @@
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^6.6.6",
+    "socks-proxy-agent": "^8.0.5",
     "swagger-ui-express": "^4.1.6",
     "uuid": "^8.3.2",
     "web-push": "^3.6.7"
