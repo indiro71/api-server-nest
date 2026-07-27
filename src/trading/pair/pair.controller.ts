@@ -124,10 +124,9 @@ export class PairController {
 
     const leverage = Number(pair.leverage || 1);
     const isLong = side === BybitMarketPositionSide.LONG;
-    const profitPercent = Number(isLong ? pair.longPercent : pair.shortPercent);
 
-    if (!Number.isFinite(profitPercent) || profitPercent <= 0) {
-      throw new BadRequestException('Profit percent signal is not active anymore');
+    if (!this.hasBybitSellSignal(pair, side)) {
+      throw new BadRequestException('Sell signal is not active anymore');
     }
 
     try {
@@ -223,6 +222,26 @@ export class PairController {
     if (!allowedAmounts.includes(amount)) {
       throw new BadRequestException(`Amount must be one of: ${allowedAmounts.join(', ')}`);
     }
+  }
+
+  private hasBybitSellSignal(pair: Pair, side: BybitMarketPositionSide): boolean {
+    const currentPrice = Number(pair.currentPrice);
+
+    if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+      return false;
+    }
+
+    if (side === BybitMarketPositionSide.LONG) {
+      const sellPrice = Number(pair.sellLongPrice);
+      const margin = Number(pair.longMargin);
+
+      return Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice > sellPrice;
+    }
+
+    const sellPrice = Number(pair.sellShortPrice);
+    const margin = Number(pair.shortMargin);
+
+    return Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice < sellPrice;
   }
 
   private validateBybitPair(pair: Pair): void {

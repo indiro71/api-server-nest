@@ -945,17 +945,17 @@ export class TradingService {
 
     private getActiveTradingButtonsCount(pairs: Pair[]): number {
         return pairs.reduce((count, pair) => {
-            if (pair.exchange !== Exchange.BYBIT) {
+            if (pair.isActive === false || pair.exchange !== Exchange.BYBIT) {
                 return count;
             }
 
             let pairButtonsCount = 0;
 
-            if (pair.longPercent > 0) {
+            if (this.hasSellSignal(pair, PositionType.LONG)) {
                 pairButtonsCount += 1;
             }
 
-            if (pair.shortPercent > 0) {
+            if (this.hasSellSignal(pair, PositionType.SHORT)) {
                 pairButtonsCount += 1;
             }
 
@@ -969,6 +969,26 @@ export class TradingService {
 
             return count + pairButtonsCount;
         }, 0);
+    }
+
+    private hasSellSignal(pair: Pair, side: PositionType): boolean {
+        const currentPrice = Number(pair.currentPrice);
+
+        if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+            return false;
+        }
+
+        if (side === PositionType.LONG) {
+            const sellPrice = Number(pair.sellLongPrice);
+            const margin = Number(pair.longMargin);
+
+            return Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice > sellPrice;
+        }
+
+        const sellPrice = Number(pair.sellShortPrice);
+        const margin = Number(pair.shortMargin);
+
+        return Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice < sellPrice;
     }
 
     async changeMargin(pairs: Pair[]): Promise<string[]> {
