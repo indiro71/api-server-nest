@@ -1,10 +1,11 @@
 import { HttpService, Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
+import { ErrorLogService } from '../../error-log/error-log.service';
 import { ChangeMarginType, IOrdersResponse, IPositionResponse, OpenType, SideType } from './mxc.interfaces';
 
 @Injectable()
 export class MxcService {
-  constructor(private httpService: HttpService) {}
+  constructor(private httpService: HttpService, private readonly errorLogService: ErrorLogService) {}
 
   headers = {
     'X-MEXC-APIKEY': process.env.MEXC_API_KEY,
@@ -85,7 +86,7 @@ export class MxcService {
       const response = await this.httpService.get(url, {headers: this.headers}).toPromise();
       return response.data;
     } catch (e) {
-      console.error(e.response)
+      this.captureError(e, 'mxc.getOpenOrders', { symbol });
     }
   }
 
@@ -125,7 +126,13 @@ export class MxcService {
       const response = await this.httpService.post(url, null, {headers: this.headers}).toPromise();
       return response.data;
     } catch (error) {
-      console.error('Error creating new order:', error.response);
+      this.captureError(error, 'mxc.newOrder', {
+        isTest,
+        price,
+        quantity,
+        side,
+        symbol,
+      });
       throw error;
     }
   }
@@ -149,7 +156,7 @@ export class MxcService {
       const response = await this.httpService.get(url, {headers: this.headers}).toPromise();
       return response.data.balances;
     } catch (e) {
-      console.error(e.response)
+      this.captureError(e, 'mxc.getWalletState');
     }
   }
 
@@ -189,7 +196,7 @@ export class MxcService {
       const response = await this.httpService.get(apiUrl, { headers, params }).toPromise();
       return response.data;
     } catch (e) {
-      console.error(e.response)
+      this.captureError(e, 'mxc.getAccountAssets');
     }
   }
 
@@ -215,7 +222,7 @@ export class MxcService {
       const response = await this.httpService.get(apiUrl, { headers, params }).toPromise();
       return response.data;
     } catch (e) {
-      console.error('error',e.response);
+      this.captureError(e, 'mxc.getPositions', { symbol });
     }
   }
 
@@ -243,7 +250,7 @@ export class MxcService {
       const response = await this.httpService.get(apiUrl, { headers, params }).toPromise();
       return response.data;
     } catch (e) {
-      console.error('error',e.response);
+      this.captureError(e, 'mxc.getOrders', { symbol });
     }
   }
 
@@ -274,7 +281,7 @@ export class MxcService {
       const response = await this.httpService.post(apiUrl, { headers, params }).toPromise();
       return response.data;
     } catch (e) {
-      console.error('error',e.response);
+      this.captureError(e, 'mxc.newFeatureOrder', { symbol });
     }
   }
 
@@ -302,7 +309,11 @@ export class MxcService {
       const response = await this.httpService.post(apiUrl, { headers, params }).toPromise();
       return response.data;
     } catch (e) {
-      console.error('error',e.response);
+      this.captureError(e, 'mxc.changeMargin', {
+        amount,
+        positionId,
+        type,
+      });
     }
   }
 
@@ -310,8 +321,23 @@ export class MxcService {
     try {
       await this.changeMargin(positionId, ChangeMarginType.ADD, amount);
     } catch (e) {
-      console.error('error',e.response);
+      this.captureError(e, 'mxc.addMargin', {
+        amount,
+        positionId,
+      });
     }
+  }
+
+  private captureError(error: any, source: string, meta?: any): void {
+    void this.errorLogService.capture(error, {
+      level: 'error',
+      source,
+      meta: {
+        ...meta,
+        message: error?.message,
+        response: error?.response?.data || error?.response,
+      },
+    });
   }
 
   private generateSignatureString(timestamp: string, params: Record<string, string>): string {

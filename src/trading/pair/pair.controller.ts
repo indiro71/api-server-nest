@@ -105,18 +105,21 @@ export class PairController {
     }
   }
 
-  @ApiOperation({ summary: 'Close profitable Bybit futures position and reopen it by market' })
+  @ApiOperation({ summary: 'Close profitable Bybit futures position and optionally reopen it by market' })
   @Post(':id/bybit/reopen-market-position')
   async reopenBybitMarketPosition(
     @Param('id') id: ObjectId,
     @Body() dto: ReopenBybitMarketPositionDto,
   ) {
     const pair = await this.pairService.getById(id);
+    const shouldReopen = dto.reopen !== false;
     const amount = Number(dto.amount);
     const side = dto.side;
 
     this.validateBybitPositionSide(side);
-    this.validateBybitPositionAmount(amount, ALLOWED_BYBIT_REOPEN_MARKET_POSITION_AMOUNTS);
+    if (shouldReopen) {
+      this.validateBybitPositionAmount(amount, ALLOWED_BYBIT_REOPEN_MARKET_POSITION_AMOUNTS);
+    }
     this.validateBybitPair(pair);
 
     const leverage = Number(pair.leverage || 1);
@@ -133,6 +136,18 @@ export class PairController {
         side: isLong ? OrderSide.Sell : OrderSide.Buy,
         positionIdx: isLong ? 1 : 2,
       });
+
+      if (!shouldReopen) {
+        return {
+          success: true,
+          pairId: pair._id,
+          symbol: pair.symbol,
+          name: pair.name,
+          side,
+          close,
+          reopenSkipped: true,
+        };
+      }
 
       try {
         const livePrice = await this.getBybitPairPrice(pair);

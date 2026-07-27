@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RestClientV5 } from 'bybit-api';
+import { ErrorLogService } from '../../error-log/error-log.service';
 import {
     CategoryType,
     IBybitClosedPnl,
@@ -55,7 +56,7 @@ export class BybitService {
     private readonly secretKey = process.env.BYBIT_SECRET_KEY;
     private readonly client: RestClientV5 = null;
 
-    constructor() {
+    constructor(private readonly errorLogService: ErrorLogService) {
         this.client = new RestClientV5(
             {
                 key: this.apiKey,
@@ -72,7 +73,7 @@ export class BybitService {
             })
             return response.result.list[0].lastPrice;
         } catch (e) {
-            console.error('Bybit getFuturesTickers error:', e.response?.data || e.message);
+            this.captureError(e, 'bybit.getContractFairPrice', { symbol });
         }
     }
 
@@ -87,7 +88,7 @@ export class BybitService {
             })
             return result as IBybitPositionsResponse;
         } catch (e) {
-            console.error('Bybit getPositions error:', e.response?.data || e.message);
+            this.captureError(e, 'bybit.getPositions', { symbol });
         }
     }
 
@@ -100,7 +101,7 @@ export class BybitService {
             });
             return result as unknown as IBybitOrdersResponse;
         } catch (e) {
-            console.error('Bybit getOrders error:', e.response?.data || e.message);
+            this.captureError(e, 'bybit.getOrders', { symbol });
         }
     }
 
@@ -140,7 +141,14 @@ export class BybitService {
                 result,
             };
         } catch (e) {
-            console.error('Bybit openMarketPosition error:', e.response?.data || e.message);
+            this.captureError(e, 'bybit.openMarketPosition', {
+                amount,
+                leverage,
+                positionIdx,
+                price,
+                side,
+                symbol,
+            });
             throw e;
         }
     }
@@ -174,7 +182,10 @@ export class BybitService {
 
             const closedPnl = orderId
                 ? await this.waitForClosedPnl(symbol, orderId).catch((error) => {
-                    console.error('Bybit waitForClosedPnl error:', error.response?.data || error.message);
+                    this.captureError(error, 'bybit.waitForClosedPnl', {
+                        orderId,
+                        symbol,
+                    });
                     return null;
                 })
                 : null;
@@ -192,7 +203,11 @@ export class BybitService {
                 unrealisedPnl: position.unrealisedPnl,
             };
         } catch (e) {
-            console.error('Bybit closeMarketPosition error:', e.response?.data || e.message);
+            this.captureError(e, 'bybit.closeMarketPosition', {
+                positionIdx,
+                side,
+                symbol,
+            });
             throw e;
         }
     }
@@ -221,9 +236,25 @@ export class BybitService {
 
             return result;
         } catch (e) {
-            console.error('Bybit changeMargin error:', e.response?.data || e.message);
+            this.captureError(e, 'bybit.changeMargin', {
+                margin,
+                positionIdx,
+                symbol,
+            });
             throw e;
         }
+    }
+
+    private captureError(error: any, source: string, meta?: any): void {
+        void this.errorLogService.capture(error, {
+            level: 'error',
+            source,
+            meta: {
+                ...meta,
+                message: error?.message,
+                response: error?.response?.data || error?.response,
+            },
+        });
     }
 
     private formatMargin(margin: number): string {

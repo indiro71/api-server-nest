@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as TelegramBot from 'node-telegram-bot-api';
+import { ErrorLogService } from '../../error-log/error-log.service';
 
 interface TelegramQueuedMessage {
   text: string;
@@ -22,7 +23,7 @@ export class TelegramService {
   private queue: TelegramQueuedMessage[];
   private queueProcessing: boolean;
 
-  constructor() {
+  constructor(private readonly errorLogService: ErrorLogService) {
     this.bot = null;
     this.inited = false;
     this.enabled = this.resolveEnabled();
@@ -60,7 +61,10 @@ export class TelegramService {
 
       if (this.pollingEnabled) {
         this.bot.on('polling_error', (error) => {
-          console.error('Telegram polling error:', error?.message || error);
+          void this.errorLogService.capture(error, {
+            level: 'error',
+            source: 'telegram.polling',
+          });
         });
       }
 
@@ -100,7 +104,10 @@ export class TelegramService {
         // await this.tradingService.sendStatistics();
       })
     } catch (error) {
-      console.error('Error listen message to Telegram:', error);
+      void this.errorLogService.capture(error, {
+        level: 'error',
+        source: 'telegram.listen',
+      });
       return null;
     }
   }
@@ -109,6 +116,16 @@ export class TelegramService {
     if (this.queue.length >= this.queueLimit) {
       this.queue.shift();
       console.warn('Telegram message queue limit reached. Oldest message was dropped.');
+      void this.errorLogService.captureMessage(
+        'Telegram message queue limit reached. Oldest message was dropped.',
+        {
+          level: 'warn',
+          source: 'telegram.queue',
+          meta: {
+            queueLimit: this.queueLimit,
+          },
+        },
+      );
     }
 
     this.queue.push(message);
@@ -123,7 +140,10 @@ export class TelegramService {
     this.queueProcessing = true;
     this.drainQueue()
       .catch((error) => {
-        console.error('Telegram queue error:', error?.message || error);
+        void this.errorLogService.capture(error, {
+          level: 'error',
+          source: 'telegram.queue',
+        });
       })
       .then(() => {
         this.queueProcessing = false;
@@ -156,7 +176,14 @@ export class TelegramService {
         'Telegram send timeout',
       );
     } catch (error) {
-      console.error('Error sending message to Telegram:', error?.message || error);
+      void this.errorLogService.capture(error, {
+        level: 'error',
+        source: 'telegram.send',
+        meta: {
+          chatId: chatId || process.env.CHAT_ID,
+          text,
+        },
+      });
     }
   }
 

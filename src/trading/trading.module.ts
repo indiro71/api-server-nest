@@ -7,9 +7,10 @@ import { TradingService } from './trading.service';
 import { ServicesModule } from '../services/services.module';
 import { BybitService } from '../services/bybit/bybit.service';
 import { PushModule } from '../push/push.module';
+import { ErrorLogModule } from '../error-log/error-log.module';
 
 @Module({
-    imports: [PairModule, CurrencyModule, OrderModule, HttpModule, ServicesModule, PushModule],
+    imports: [PairModule, CurrencyModule, OrderModule, HttpModule, ServicesModule, PushModule, ErrorLogModule],
     providers: [MxcService, BybitService, TradingService],
     exports: [PairModule, CurrencyModule, OrderModule, TradingService],
 })

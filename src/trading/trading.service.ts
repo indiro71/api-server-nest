@@ -12,6 +12,7 @@ import { getBybitPositions, getMexcPositions } from './trading.utils';
 import { Pair } from './pair/schemas/pair.schema';
 import { PairGateway } from './pair/pair.gateway';
 import { PushService } from '../push/push.service';
+import { ErrorLogService } from '../error-log/error-log.service';
 
 /* tg commands---------------
 togglemonitoring - Toggle Monitoring Price
@@ -63,7 +64,7 @@ export class TradingService {
     private dailyTransactions: Record<string, number>;
     private nightMessages: string[];
 
-    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pairGateway: PairGateway, private readonly pushService: PushService) {
+    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pairGateway: PairGateway, private readonly pushService: PushService, private readonly errorLogService: ErrorLogService) {
         this.isTraded = false;
         this.isMonitoring = false;
         this.buyOnRise = false;
@@ -118,7 +119,7 @@ export class TradingService {
                     }
                 }
             } catch (err) {
-                console.error(err?.message);
+                this.captureError(err, 'trading.checkMissedBuyOrders');
                 if (this.isWorkingTime()) {
                     await this.telegramService.sendMessage(`Ошибка checkMissedBuyOrders: ${err.message}`);
                 }
@@ -154,7 +155,10 @@ export class TradingService {
                 }
             }
         } catch (err) {
-            console.error(err?.message);
+            this.captureError(err, 'trading.checkSellingOrders', {
+                currencyId: currency?._id,
+                symbol: currency?.symbol,
+            });
             if (this.isWorkingTime()) {
                 await this.telegramService.sendMessage(`Ошибка checkSellingOrders: ${err.message}`);
             }
@@ -249,7 +253,7 @@ export class TradingService {
                     }
                 }
             } catch (err) {
-                console.error(err?.message);
+                this.captureError(err, 'trading.checkMissedSellOrders');
                 if (this.isWorkingTime()) {
                     await this.telegramService.sendMessage(`Ошибка checkMissedSellOrders: ${err.message}`);
                 }
@@ -261,7 +265,7 @@ export class TradingService {
         try {
             await this.telegramService.sendMessage("Trading on " + new Date());
         } catch (e) {
-            console.error(e);
+            this.captureError(e, 'trading.inited');
         }
     }
 
@@ -678,7 +682,7 @@ export class TradingService {
                 await this.telegramService.sendMessage(`🚨⬆️ Фиксация массовой покупки KAS \n\n Покупается  ${buyOrdersSum} монет - ${buyPercent}%`);
             }
         } catch (err) {
-            console.error(err?.message);
+            this.captureError(err, 'trading.monitoringBook');
             await this.telegramService.sendMessage(`Ошибка monitoringBook: ${err.message}`);
         }
     }
@@ -918,13 +922,25 @@ export class TradingService {
                 }
             }
         } catch (e) {
-            console.error(e?.message);
+            this.captureError(e, 'trading.tradeMonitoring');
             // if (this.isWorkingTime()) {
             //   await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
             // }
         } finally {
             this.isMonitoring = false;
         }
+    }
+
+    private captureError(error: any, source: string, meta?: any): void {
+        void this.errorLogService.capture(error, {
+            level: 'error',
+            source,
+            meta: {
+                ...meta,
+                message: error?.message,
+                response: error?.response?.data || error?.response,
+            },
+        });
     }
 
     private getActiveTradingButtonsCount(pairs: Pair[]): number {
@@ -1016,7 +1032,7 @@ export class TradingService {
 
                 return messages;
             } catch (err) {
-                console.error(err?.message);
+                this.captureError(err, 'trading.changeMargin');
                 if (this.isWorkingTime()) {
                     await this.telegramService.sendMessage(`Ошибка changeMargin: ${err.message}`);
                 }
@@ -1049,7 +1065,7 @@ export class TradingService {
                     await this.pushService.sendMessage('Trading monitor', notificationMessage);
                 }
             } catch (err) {
-                console.error(err?.message);
+                this.captureError(err, 'trading.checkBuy');
                 if (this.isWorkingTime()) {
                     await this.telegramService.sendMessage(`Ошибка checkBuy: ${err.message}`);
                 }
@@ -1079,7 +1095,7 @@ export class TradingService {
                     await this.pushService.sendMessage('Trading monitor', notificationMessage);
                 }
             } catch (err) {
-                console.error(err?.message);
+                this.captureError(err, 'trading.checkSell');
                 if (this.isWorkingTime()) {
                     await this.telegramService.sendMessage(`Ошибка checkSell: ${err.message}`);
                 }
@@ -1302,7 +1318,7 @@ export class TradingService {
                     this.checkCount++;
                 }
             } catch (err) {
-                console.error(err?.message);
+                this.captureError(err, 'trading.monitoring');
                 if (this.isWorkingTime()) {
                     await this.telegramService.sendMessage(`Ошибка monitoring: ${err.message}`);
                 }
