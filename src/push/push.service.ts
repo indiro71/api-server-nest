@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as webPush from 'web-push';
+import { ErrorLogService } from '../error-log/error-log.service';
 import { PushSubscriptionDto } from './dto/push-subscription.dto';
 import {
   PushSubscriptionDocument,
@@ -32,6 +33,7 @@ export class PushService {
   constructor(
     @InjectModel(PushSubscriptionEntity.name)
     private readonly subscriptionModel: Model<PushSubscriptionDocument>,
+    private readonly errorLogService: ErrorLogService,
   ) {
     if (this.publicKey && this.privateKey) {
       webPush.setVapidDetails(this.subject, this.publicKey, this.privateKey);
@@ -151,7 +153,16 @@ export class PushService {
         return;
       }
 
-      console.error('Web Push send error:', error?.body || error?.message);
+      void this.errorLogService.capture(error, {
+        level: 'error',
+        source: 'push.send',
+        meta: {
+          body: error?.body,
+          endpoint: subscription.endpoint,
+          payload,
+          statusCode,
+        },
+      });
     }
   }
 

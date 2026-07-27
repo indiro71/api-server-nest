@@ -15,6 +15,7 @@ import { join } from 'path';
 import { TradingModule } from './trading/trading.module';
 import { FootballModule } from './football/football.module';
 import { PushModule } from './push/push.module';
+import { ErrorLogModule } from './error-log/error-log.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { PushModule } from './push/push.module';
     TradingModule,
     FootballModule,
     PushModule,
+    ErrorLogModule,
   ],
   providers: [CronService],
 })
