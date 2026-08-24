@@ -14,4 +14,10 @@ export class CreatePairDto {
 
     @ApiProperty({ example: 'MEXC', description: 'Pair exchange' })
     readonly exchange: string;
+
+    @ApiProperty({ example: 2, description: 'Price rounding decimal places' })
+    readonly round: number;
+
+    @ApiProperty({ example: 1, description: 'Pair sorting order' })
+    readonly order: number;
 }
