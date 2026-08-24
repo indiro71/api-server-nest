@@ -237,10 +237,10 @@ export class PairController {
       const percent = Number(pair.longPercent);
       const hasReachedSellPrice =
         Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice > sellPrice;
-      const hasProfitableLargeMargin =
-        Number.isFinite(percent) && percent > 0 && Number.isFinite(margin) && margin > 50;
+      const hasProfitablePosition =
+        Number.isFinite(percent) && percent > 0 && Number.isFinite(margin) && margin > 0;
 
-      return hasReachedSellPrice || hasProfitableLargeMargin;
+      return hasReachedSellPrice || hasProfitablePosition;
     }
 
     const sellPrice = Number(pair.sellShortPrice);
@@ -248,10 +248,10 @@ export class PairController {
     const percent = Number(pair.shortPercent);
     const hasReachedSellPrice =
       Number.isFinite(sellPrice) && sellPrice > 0 && margin > 0 && currentPrice < sellPrice;
-    const hasProfitableLargeMargin =
-      Number.isFinite(percent) && percent > 0 && Number.isFinite(margin) && margin > 50;
+    const hasProfitablePosition =
+      Number.isFinite(percent) && percent > 0 && Number.isFinite(margin) && margin > 0;
 
-    return hasReachedSellPrice || hasProfitableLargeMargin;
+    return hasReachedSellPrice || hasProfitablePosition;
   }
 
   private validateBybitPair(pair: Pair): void {
