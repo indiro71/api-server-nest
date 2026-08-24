@@ -150,6 +150,15 @@ export class CronService {
         }
     }
 
+    @Cron(CronExpression.EVERY_MINUTE)
+    async flushTelegramMessageQueue() {
+        try {
+            await this.tradingService.flushTelegramMessageQueue();
+        } catch (e) {
+            this.logger.error('Telegram message queue cron error', e.message);
+        }
+    }
+
     @Cron('0 0 12 * * *')
     async topMatches() {
         try {
