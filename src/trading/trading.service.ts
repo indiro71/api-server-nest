@@ -62,6 +62,8 @@ export class TradingService {
     private dailyProfit: Record<string, number>;
     private dailyTransactions: Record<string, number>;
     private nightMessages: string[];
+    private telegramMessageQueue: string[];
+    private telegramMessageQueueFlushing: boolean;
 
     constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pushService: PushService, private readonly errorLogService: ErrorLogService) {
         this.isTraded = false;
@@ -85,6 +87,8 @@ export class TradingService {
         this.stopBuyShortLimit = 48;
         this.marginDifference = 15;
         this.nightMessages = [];
+        this.telegramMessageQueue = [];
+        this.telegramMessageQueueFlushing = false;
         this.inited();
         this.listenTg();
     }
@@ -699,6 +703,63 @@ export class TradingService {
         return !(hours >= 0 && hours < 9);
     }
 
+    enqueueTelegramMessage(message: string): void {
+        const normalizedMessage = message?.trim();
+
+        if (normalizedMessage) {
+            this.telegramMessageQueue.push(normalizedMessage);
+        }
+    }
+
+    enqueueTelegramMessages(messages: string[]): void {
+        messages?.forEach(message => this.enqueueTelegramMessage(message));
+    }
+
+    async flushTelegramMessageQueue(): Promise<void> {
+        if (this.telegramMessageQueueFlushing || this.telegramMessageQueue.length === 0) return;
+        if (!this.isWorkingTime() && !this.sendNightStat) return;
+
+        this.telegramMessageQueueFlushing = true;
+        const queuedMessagesCount = this.telegramMessageQueue.length;
+        let processedMessagesCount = 0;
+
+        try {
+            while (processedMessagesCount < queuedMessagesCount) {
+                const batch = this.getTelegramMessageBatch(queuedMessagesCount - processedMessagesCount);
+
+                if (batch.count === 0) break;
+
+                await this.telegramService.sendMessage(batch.text);
+                this.telegramMessageQueue.splice(0, batch.count);
+                processedMessagesCount += batch.count;
+            }
+        } catch (error) {
+            this.captureError(error, 'trading.flushTelegramMessageQueue', {
+                queuedMessagesCount: this.telegramMessageQueue.length,
+            });
+        } finally {
+            this.telegramMessageQueueFlushing = false;
+        }
+    }
+
+    private getTelegramMessageBatch(maxMessagesCount: number): { count: number; text: string } {
+        const maxMessageLength = 3500;
+        const batchMessages: string[] = [];
+
+        for (const message of this.telegramMessageQueue.slice(0, maxMessagesCount)) {
+            const nextText = [...batchMessages, message].join('\n\n');
+
+            if (batchMessages.length > 0 && nextText.length > maxMessageLength) break;
+
+            batchMessages.push(message);
+        }
+
+        return {
+            count: batchMessages.length,
+            text: batchMessages.join('\n\n'),
+        };
+    }
+
     getPercent = (currentPrice, savingPrice, isShort?: boolean) => {
         if (!savingPrice) return 0;
         const percent = (currentPrice / savingPrice) * 100 - 100;
@@ -796,7 +857,7 @@ export class TradingService {
                         if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
                             const warningMessage = `🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`;
 
-                            await this.telegramService.sendMessage(warningMessage);
+                            this.enqueueTelegramMessage(warningMessage);
                             await this.pushService.sendMessage('Trading monitor', warningMessage);
                         }
 
@@ -891,6 +952,7 @@ export class TradingService {
                             pair.nextBuyShortPrice = 0;
                         }
 
+                        pair.dateUpdate = new Date();
                         await this.pairService.update(pair._id, pair);
                         updatedPairs.push(pair);
                     }
@@ -905,6 +967,8 @@ export class TradingService {
                     messages.push(...marginMessages);
                 }
 
+                this.enqueueTelegramMessages(messages);
+
                 if ((this.nightMessages?.length > 0 || messages?.length > 0) && (this.isWorkingTime() || this.sendNightStat)) {
                     if (this.nightMessages?.length > 0) {
                         messages.push('🌙 Night notifications:\n');
@@ -913,7 +977,6 @@ export class TradingService {
                     }
                     const notificationMessage = messages.join('\n\n');
 
-                    await this.telegramService.sendMessage(notificationMessage);
                     await this.pushService.sendMessage('Trading monitor', notificationMessage);
                 } else {
                     this.nightMessages.push(...messages);
@@ -1061,9 +1124,7 @@ export class TradingService {
                 return messages;
             } catch (err) {
                 this.captureError(err, 'trading.changeMargin');
-                if (this.isWorkingTime()) {
-                    await this.telegramService.sendMessage(`Ошибка changeMargin: ${err.message}`);
-                }
+                this.enqueueTelegramMessage(`Ошибка changeMargin: ${err.message}`);
 
                 return [];
             }
