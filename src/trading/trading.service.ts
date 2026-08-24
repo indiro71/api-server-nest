@@ -10,7 +10,6 @@ import { BybitService } from '../services/bybit/bybit.service';
 import { Exchange, Position } from './trading.interfaces';
 import { getBybitPositions, getMexcPositions } from './trading.utils';
 import { Pair } from './pair/schemas/pair.schema';
-import { PairGateway } from './pair/pair.gateway';
 import { PushService } from '../push/push.service';
 import { ErrorLogService } from '../error-log/error-log.service';
 
@@ -64,7 +63,7 @@ export class TradingService {
     private dailyTransactions: Record<string, number>;
     private nightMessages: string[];
 
-    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pairGateway: PairGateway, private readonly pushService: PushService, private readonly errorLogService: ErrorLogService) {
+    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pushService: PushService, private readonly errorLogService: ErrorLogService) {
         this.isTraded = false;
         this.isMonitoring = false;
         this.buyOnRise = false;
@@ -897,7 +896,6 @@ export class TradingService {
                     }
                 }
 
-                this.pairGateway.emitPairsUpdate(updatedPairs);
                 await this.pushService.notifyTradingSignals({
                     activeButtonsCount: this.getActiveTradingButtonsCount(updatedPairs),
                 });
