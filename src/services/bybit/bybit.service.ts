@@ -52,6 +52,7 @@ export interface CloseMarketPositionResult {
 
 @Injectable()
 export class BybitService {
+    private readonly requestTimeoutMs = this.getRequestTimeoutMs();
     private readonly apiKey = process.env.BYBIT_API_KEY;
     private readonly secretKey = process.env.BYBIT_SECRET_KEY;
     private readonly client: RestClientV5 = null;
@@ -61,7 +62,10 @@ export class BybitService {
             {
                 key: this.apiKey,
                 secret: this.secretKey
-            }
+            },
+            {
+                timeout: this.requestTimeoutMs,
+            },
         );
     }
 
@@ -74,6 +78,7 @@ export class BybitService {
             return response.result.list[0].lastPrice;
         } catch (e) {
             this.captureError(e, 'bybit.getContractFairPrice', { symbol });
+            throw e;
         }
     }
 
@@ -89,6 +94,7 @@ export class BybitService {
             return result as IBybitPositionsResponse;
         } catch (e) {
             this.captureError(e, 'bybit.getPositions', { symbol });
+            throw e;
         }
     }
 
@@ -102,7 +108,14 @@ export class BybitService {
             return result as unknown as IBybitOrdersResponse;
         } catch (e) {
             this.captureError(e, 'bybit.getOrders', { symbol });
+            throw e;
         }
+    }
+
+    private getRequestTimeoutMs(): number {
+        const timeout = Number(process.env.BYBIT_REQUEST_TIMEOUT_MS);
+
+        return Number.isFinite(timeout) && timeout > 0 ? timeout : 15_000;
     }
 
     async openMarketPosition({

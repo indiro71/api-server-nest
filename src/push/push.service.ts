@@ -24,6 +24,7 @@ interface PushMessagePayload {
 
 @Injectable()
 export class PushService {
+  private readonly requestTimeoutMs = 15_000;
   private readonly publicKey = process.env.WEB_PUSH_PUBLIC_KEY;
   private readonly privateKey = process.env.WEB_PUSH_PRIVATE_KEY;
   private readonly subject = process.env.WEB_PUSH_SUBJECT || 'mailto:admin@indiro.ru';
@@ -144,6 +145,9 @@ export class PushService {
           },
         },
         JSON.stringify(payload),
+        {
+          timeout: this.requestTimeoutMs,
+        },
       );
     } catch (error) {
       const statusCode = error?.statusCode;
