@@ -5,12 +5,22 @@ import { ChangeMarginType, IOrdersResponse, IPositionResponse, OpenType, SideTyp
 
 @Injectable()
 export class MxcService {
-  constructor(private httpService: HttpService, private readonly errorLogService: ErrorLogService) {}
+  private readonly requestTimeoutMs = this.getRequestTimeoutMs();
+
+  constructor(private httpService: HttpService, private readonly errorLogService: ErrorLogService) {
+    this.httpService.axiosRef.defaults.timeout = this.requestTimeoutMs;
+  }
 
   headers = {
     'X-MEXC-APIKEY': process.env.MEXC_API_KEY,
     'Content-Type': 'application/json',
   };
+
+  private getRequestTimeoutMs(): number {
+    const timeout = Number(process.env.MEXC_REQUEST_TIMEOUT_MS);
+
+    return Number.isFinite(timeout) && timeout > 0 ? timeout : 15_000;
+  }
 
   async monitoring() {
     const symbol = 'KASUSDT';
@@ -223,6 +233,7 @@ export class MxcService {
       return response.data;
     } catch (e) {
       this.captureError(e, 'mxc.getPositions', { symbol });
+      throw e;
     }
   }
 

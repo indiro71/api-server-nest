@@ -6,10 +6,12 @@ import { Pair, PairDocument } from './schemas/pair.schema';
 
 @Injectable()
 export class PairService {
+  private readonly queryTimeoutMs = 15_000;
+
   constructor(@InjectModel(Pair.name) private pairModel: Model<PairDocument>) {}
 
   async getAll(): Promise<Pair[]> {
-    const pairs = await this.pairModel.find();
+    const pairs = await this.pairModel.find().maxTimeMS(this.queryTimeoutMs).exec();
     return pairs;
   }
 
@@ -22,7 +24,10 @@ export class PairService {
   }
 
   async update(id: ObjectId, dto: CreatePairDto): Promise<Pair> {
-    const pair = await this.pairModel.findByIdAndUpdate(id, dto);
+    const pair = await this.pairModel
+      .findByIdAndUpdate(id, dto)
+      .maxTimeMS(this.queryTimeoutMs)
+      .exec();
     return pair;
   }
 

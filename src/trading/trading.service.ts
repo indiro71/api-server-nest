@@ -790,6 +790,10 @@ export class TradingService {
                 throw new Error(`Unsupported exchange: ${pair.exchange}`);
         }
 
+        if (!Number.isFinite(pairCurrentPrice) || pairCurrentPrice <= 0) {
+            throw new Error(`Invalid current price for ${pair.symbol}: ${pairCurrentPrice}`);
+        }
+
         return pairCurrentPrice;
     }
 
