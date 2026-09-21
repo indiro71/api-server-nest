@@ -51,6 +51,11 @@ export interface CloseMarketPositionResult {
     unrealisedPnl: string;
 }
 
+export interface BybitAccountMarginRisk {
+    accountMMRate: number;
+    totalMaintenanceMargin: number;
+}
+
 @Injectable()
 export class BybitService {
     private readonly requestTimeoutMs = this.getRequestTimeoutMs();
@@ -116,6 +121,34 @@ export class BybitService {
             return result as unknown as IBybitOrdersResponse;
         } catch (e) {
             this.captureError(e, 'bybit.getOrders', { exchangeAccount, symbol });
+            throw e;
+        }
+    }
+
+    async getAccountMarginRisk(exchangeAccount: number): Promise<BybitAccountMarginRisk> {
+        const client = this.getClient(exchangeAccount);
+
+        try {
+            const response = await client.getWalletBalance({ accountType: 'UNIFIED' } as any);
+            const wallet = response?.result?.list?.[0];
+
+            if (response?.retCode !== 0 || !wallet) {
+                throw new Error(response?.retMsg || `Bybit wallet balance not found for account ${exchangeAccount}`);
+            }
+
+            const accountMMRate = Number(wallet.accountMMRate);
+            const totalMaintenanceMargin = Number(wallet.totalMaintenanceMargin);
+
+            if (!Number.isFinite(accountMMRate) || !Number.isFinite(totalMaintenanceMargin)) {
+                throw new Error(`Invalid Bybit margin risk for account ${exchangeAccount}`);
+            }
+
+            return {
+                accountMMRate,
+                totalMaintenanceMargin,
+            };
+        } catch (e) {
+            this.captureError(e, 'bybit.getAccountMarginRisk', { exchangeAccount });
             throw e;
         }
     }

@@ -47,6 +47,10 @@ export class Pair {
     })
     exchangeAccount: number;
 
+    @ApiProperty({ example: 'CROSS', description: 'Exchange margin mode', required: false })
+    @Prop()
+    marginMode?: string;
+
     @ApiProperty({ example: 500, description: 'Long Margin Limit' })
     @Prop({
         default: 200,
@@ -143,6 +147,12 @@ export class Pair {
     })
     longAllMargin: number;
 
+    @ApiProperty({ example: 2, description: 'Long Maintenance Margin' })
+    @Prop({
+        default: 0,
+    })
+    longMaintenanceMargin: number;
+
     @ApiProperty({ example: 100, description: 'Short price' })
     @Prop({
         default: 0.1,
@@ -160,6 +170,12 @@ export class Pair {
         default: 20,
     })
     shortAllMargin: number;
+
+    @ApiProperty({ example: 2, description: 'Short Maintenance Margin' })
+    @Prop({
+        default: 0,
+    })
+    shortMaintenanceMargin: number;
 
     @ApiProperty({
         example: '1624216164414',
