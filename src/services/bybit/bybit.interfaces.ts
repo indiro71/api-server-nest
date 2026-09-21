@@ -37,6 +37,11 @@ export enum CategoryType {
     OPTION = 'option',
 }
 
+export enum BybitMarginMode {
+    ISOLATED = 'ISOLATED',
+    CROSS = 'CROSS',
+}
+
 export interface IBybitTicker {
     symbol: string;
     lastPrice: string;

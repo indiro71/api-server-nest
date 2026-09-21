@@ -39,6 +39,14 @@ export class Pair {
     })
     exchange: string;
 
+    @ApiProperty({ example: 1, description: 'Exchange account number', default: 1 })
+    @Prop({
+        default: 1,
+        min: 1,
+        required: true,
+    })
+    exchangeAccount: number;
+
     @ApiProperty({ example: 500, description: 'Long Margin Limit' })
     @Prop({
         default: 200,

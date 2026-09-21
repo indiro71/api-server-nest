@@ -30,30 +30,39 @@ export const getMexcPositions = (positions: IOpenedPosition[]): Position[] => {
 
 // bybit
 export const getBybitPositions = (positions: IBybitPosition[]): Position[] => {
-    return positions?.map(position => {
-        const leverage = parseFloat(position.leverage ?? '0');
-        const size = parseFloat(position.size ?? '0');
-        const avgPrice = parseFloat(position.avgPrice ?? '0');
-        const positionIM = parseFloat(position.positionIM ?? '0');
+    return positions
+        ?.filter(position => {
+            const size = Number(position.size);
 
-        const baseMargin = leverage > 0
-            ? (size * avgPrice) / leverage
-            : positionIM;
+            return size > 0 && [PositionSide.Buy, PositionSide.Sell].includes(position.side);
+        })
+        .map(position => {
+            const leverage = Number(position.leverage) || 0;
+            const size = Number(position.size) || 0;
+            const avgPrice = Number(position.avgPrice) || 0;
+            const positionIM = Number(position.positionIM) || 0;
 
-        const totalMargin = parseFloat(position.positionBalance ?? `${positionIM}`);
-        const addedMargin = Math.max(totalMargin - baseMargin, 0);
+            const baseMargin = leverage > 0
+                ? (size * avgPrice) / leverage
+                : positionIM;
 
-        return {
-            symbol: position.symbol,
-            positionType: position.side === PositionSide.Buy ? PositionType.LONG : PositionType.SHORT,
-            positionIdx: position.positionIdx,
-            holdAvgPrice: avgPrice,
-            im: totalMargin,
-            oim: baseMargin,
-            liquidatePrice: +position.liqPrice,
-            autoAddIm: position.autoAddMargin === 1,
-        };
-    });
+            const positionBalance = Number(position.positionBalance);
+            const totalMargin = Number.isFinite(positionBalance) && positionBalance > 0
+                ? positionBalance
+                : positionIM || baseMargin;
+            const liquidatePrice = Number(position.liqPrice);
+
+            return {
+                symbol: position.symbol,
+                positionType: position.side === PositionSide.Buy ? PositionType.LONG : PositionType.SHORT,
+                positionIdx: position.positionIdx,
+                holdAvgPrice: avgPrice,
+                im: totalMargin,
+                oim: baseMargin,
+                liquidatePrice: Number.isFinite(liquidatePrice) ? liquidatePrice : 0,
+                autoAddIm: position.autoAddMargin === 1,
+            };
+        });
 };
 
 export const getBybitOrders = (orders: IBybitOrder[]): Order[] => {

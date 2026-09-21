@@ -1,14 +1,29 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { CreatePairDto } from './dto/create-pair.dto';
 import { Pair, PairDocument } from './schemas/pair.schema';
 
 @Injectable()
-export class PairService {
+export class PairService implements OnModuleInit {
   private readonly queryTimeoutMs = 15_000;
 
   constructor(@InjectModel(Pair.name) private pairModel: Model<PairDocument>) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.pairModel
+      .updateMany(
+        {
+          $or: [
+            { exchangeAccount: { $exists: false } },
+            { exchangeAccount: null },
+          ],
+        },
+        { $set: { exchangeAccount: 1 } },
+      )
+      .maxTimeMS(this.queryTimeoutMs)
+      .exec();
+  }
 
   async getAll(): Promise<Pair[]> {
     const pairs = await this.pairModel.find().maxTimeMS(this.queryTimeoutMs).exec();
@@ -25,7 +40,7 @@ export class PairService {
 
   async update(id: ObjectId, dto: CreatePairDto): Promise<Pair> {
     const pair = await this.pairModel
-      .findByIdAndUpdate(id, dto)
+      .findByIdAndUpdate(id, dto, { runValidators: true })
       .maxTimeMS(this.queryTimeoutMs)
       .exec();
     return pair;
