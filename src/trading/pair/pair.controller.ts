@@ -72,6 +72,7 @@ export class PairController {
     this.validateBybitPositionAmount(amount, ALLOWED_BYBIT_MARKET_POSITION_AMOUNTS);
     this.validateBybitPair(pair);
 
+    const exchangeAccount = this.getPairExchangeAccount(pair);
     const livePrice = await this.getBybitPairPrice(pair);
     const leverage = Number(pair.leverage || 1);
     const isLong = side === BybitMarketPositionSide.LONG;
@@ -83,7 +84,7 @@ export class PairController {
     }
 
     try {
-      const order = await this.bybitService.openMarketPosition({
+      const order = await this.bybitService.openMarketPosition(exchangeAccount, {
         symbol: pair.symbol,
         side: isLong ? OrderSide.Buy : OrderSide.Sell,
         amount,
@@ -95,6 +96,7 @@ export class PairController {
       return {
         success: true,
         pairId: pair._id,
+        exchangeAccount,
         symbol: pair.symbol,
         name: pair.name,
         side,
@@ -122,6 +124,7 @@ export class PairController {
     }
     this.validateBybitPair(pair);
 
+    const exchangeAccount = this.getPairExchangeAccount(pair);
     const leverage = Number(pair.leverage || 1);
     const isLong = side === BybitMarketPositionSide.LONG;
 
@@ -130,7 +133,7 @@ export class PairController {
     }
 
     try {
-      const close = await this.bybitService.closeMarketPosition({
+      const close = await this.bybitService.closeMarketPosition(exchangeAccount, {
         symbol: pair.symbol,
         side: isLong ? OrderSide.Sell : OrderSide.Buy,
         positionIdx: isLong ? 1 : 2,
@@ -140,6 +143,7 @@ export class PairController {
         return {
           success: true,
           pairId: pair._id,
+          exchangeAccount,
           symbol: pair.symbol,
           name: pair.name,
           side,
@@ -150,7 +154,7 @@ export class PairController {
 
       try {
         const livePrice = await this.getBybitPairPrice(pair);
-        const reopen = await this.bybitService.openMarketPosition({
+        const reopen = await this.bybitService.openMarketPosition(exchangeAccount, {
           symbol: pair.symbol,
           side: isLong ? OrderSide.Buy : OrderSide.Sell,
           amount,
@@ -162,6 +166,7 @@ export class PairController {
         return {
           success: true,
           pairId: pair._id,
+          exchangeAccount,
           symbol: pair.symbol,
           name: pair.name,
           side,
@@ -170,6 +175,7 @@ export class PairController {
           reopen: {
             success: true,
             pairId: pair._id,
+            exchangeAccount,
             symbol: pair.symbol,
             name: pair.name,
             side,
@@ -180,6 +186,7 @@ export class PairController {
         return {
           success: false,
           pairId: pair._id,
+          exchangeAccount,
           symbol: pair.symbol,
           name: pair.name,
           side,
@@ -258,5 +265,15 @@ export class PairController {
     if (pair.exchange !== Exchange.BYBIT) {
       throw new BadRequestException('Market position can be used only for BYBIT pairs');
     }
+  }
+
+  private getPairExchangeAccount(pair: Pair): number {
+    const exchangeAccount = Number(pair.exchangeAccount || 1);
+
+    if (!Number.isInteger(exchangeAccount) || exchangeAccount < 1) {
+      throw new BadRequestException('Pair exchange account is invalid');
+    }
+
+    return exchangeAccount;
   }
 }

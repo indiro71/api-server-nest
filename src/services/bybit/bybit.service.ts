@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { RestClientV5 } from 'bybit-api';
 import { ErrorLogService } from '../../error-log/error-log.service';
 import {
+    BybitMarginMode,
     CategoryType,
     IBybitClosedPnl,
     IBybitClosedPnlResponse,
@@ -53,16 +54,12 @@ export interface CloseMarketPositionResult {
 @Injectable()
 export class BybitService {
     private readonly requestTimeoutMs = this.getRequestTimeoutMs();
-    private readonly apiKey = process.env.BYBIT_API_KEY;
-    private readonly secretKey = process.env.BYBIT_SECRET_KEY;
-    private readonly client: RestClientV5 = null;
+    private readonly clients = new Map<number, RestClientV5>();
+    private readonly publicClient: RestClientV5;
 
     constructor(private readonly errorLogService: ErrorLogService) {
-        this.client = new RestClientV5(
-            {
-                key: this.apiKey,
-                secret: this.secretKey
-            },
+        this.publicClient = new RestClientV5(
+            {},
             {
                 timeout: this.requestTimeoutMs,
             },
@@ -71,11 +68,17 @@ export class BybitService {
 
     async getContractFairPrice(symbol?: string): Promise<string> {
         try {
-            const response = await this.client.getTickers({
+            const response = await this.publicClient.getTickers({
                 category: CategoryType.LINEAR,
                 symbol
-            })
-            return response.result.list[0].lastPrice;
+            });
+            const ticker = response?.result?.list?.[0];
+
+            if (response?.retCode !== 0 || !ticker?.lastPrice) {
+                throw new Error(response?.retMsg || `Bybit ticker not found for ${symbol}`);
+            }
+
+            return ticker.lastPrice;
         } catch (e) {
             this.captureError(e, 'bybit.getContractFairPrice', { symbol });
             throw e;
@@ -83,33 +86,51 @@ export class BybitService {
     }
 
     async getPositions(
+        exchangeAccount: number,
         symbol?: string,
     ): Promise<IBybitPositionsResponse> {
+        const client = this.getClient(exchangeAccount);
+
         try {
-            const result = await this.client.getPositionInfo({
+            const result = await client.getPositionInfo({
                 category: CategoryType.LINEAR,
                 ...(symbol ? { symbol } : { settleCoin: 'USDT' }),
                 limit: 100
             })
             return result as IBybitPositionsResponse;
         } catch (e) {
-            this.captureError(e, 'bybit.getPositions', { symbol });
+            this.captureError(e, 'bybit.getPositions', { exchangeAccount, symbol });
             throw e;
         }
     }
 
-    async getOrders(symbol?: string): Promise<IBybitOrdersResponse> {
+    async getOrders(exchangeAccount: number, symbol?: string): Promise<IBybitOrdersResponse> {
+        const client = this.getClient(exchangeAccount);
+
         try {
-            const result = await this.client.getActiveOrders({
+            const result = await client.getActiveOrders({
                 category: CategoryType.LINEAR,
                 ...(symbol ? { symbol } : { settleCoin: 'USDT' }),
                 limit: 100
             });
             return result as unknown as IBybitOrdersResponse;
         } catch (e) {
-            this.captureError(e, 'bybit.getOrders', { symbol });
+            this.captureError(e, 'bybit.getOrders', { exchangeAccount, symbol });
             throw e;
         }
+    }
+
+    getMarginMode(exchangeAccount: number): BybitMarginMode {
+        const account = this.normalizeExchangeAccount(exchangeAccount);
+        const value = process.env[`BYBIT_MARGIN_MODE_${account}`]?.trim().toUpperCase();
+
+        if (value === BybitMarginMode.ISOLATED || value === BybitMarginMode.CROSS) {
+            return value;
+        }
+
+        throw new Error(
+            `BYBIT_MARGIN_MODE_${account} must be ${BybitMarginMode.ISOLATED} or ${BybitMarginMode.CROSS}`,
+        );
     }
 
     private getRequestTimeoutMs(): number {
@@ -118,7 +139,7 @@ export class BybitService {
         return Number.isFinite(timeout) && timeout > 0 ? timeout : 15_000;
     }
 
-    async openMarketPosition({
+    async openMarketPosition(exchangeAccount: number, {
         symbol,
         side,
         amount,
@@ -126,11 +147,13 @@ export class BybitService {
         price,
         positionIdx,
     }: OpenMarketPositionParams): Promise<OpenMarketPositionResult> {
+        const client = this.getClient(exchangeAccount);
+
         try {
             const instrument = await this.getInstrument(symbol);
             const orderValue = amount * leverage;
             const qty = this.calculateOrderQty(orderValue, price, instrument?.lotSizeFilter);
-            const result = await this.client.submitOrder({
+            const result = await client.submitOrder({
                 category: CategoryType.LINEAR,
                 symbol,
                 side,
@@ -156,6 +179,7 @@ export class BybitService {
         } catch (e) {
             this.captureError(e, 'bybit.openMarketPosition', {
                 amount,
+                exchangeAccount,
                 leverage,
                 positionIdx,
                 price,
@@ -166,15 +190,17 @@ export class BybitService {
         }
     }
 
-    async closeMarketPosition({
+    async closeMarketPosition(exchangeAccount: number, {
         symbol,
         side,
         positionIdx,
     }: CloseMarketPositionParams): Promise<CloseMarketPositionResult> {
+        const client = this.getClient(exchangeAccount);
+
         try {
-            const position = await this.getOpenPosition(symbol, positionIdx);
+            const position = await this.getOpenPosition(exchangeAccount, symbol, positionIdx);
             const qty = position.size;
-            const result = await this.client.submitOrder({
+            const result = await client.submitOrder({
                 category: CategoryType.LINEAR,
                 symbol,
                 side,
@@ -191,11 +217,12 @@ export class BybitService {
 
             const orderId = result?.result?.orderId;
 
-            await this.waitForPositionClose(symbol, positionIdx);
+            await this.waitForPositionClose(exchangeAccount, symbol, positionIdx);
 
             const closedPnl = orderId
-                ? await this.waitForClosedPnl(symbol, orderId).catch((error) => {
+                ? await this.waitForClosedPnl(exchangeAccount, symbol, orderId).catch((error) => {
                     this.captureError(error, 'bybit.waitForClosedPnl', {
+                        exchangeAccount,
                         orderId,
                         symbol,
                     });
@@ -217,6 +244,7 @@ export class BybitService {
             };
         } catch (e) {
             this.captureError(e, 'bybit.closeMarketPosition', {
+                exchangeAccount,
                 positionIdx,
                 side,
                 symbol,
@@ -225,18 +253,24 @@ export class BybitService {
         }
     }
 
-    async addMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
-        return this.changeMargin(symbol, margin, positionIdx);
+    async addMargin(exchangeAccount: number, symbol: string, margin: number, positionIdx?: number): Promise<any> {
+        return this.changeMargin(exchangeAccount, symbol, margin, positionIdx);
     }
 
-    async removeMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
-        return this.changeMargin(symbol, -Math.abs(margin), positionIdx);
+    async removeMargin(exchangeAccount: number, symbol: string, margin: number, positionIdx?: number): Promise<any> {
+        return this.changeMargin(exchangeAccount, symbol, -Math.abs(margin), positionIdx);
     }
 
-    private async changeMargin(symbol: string, margin: number, positionIdx?: number): Promise<any> {
+    private async changeMargin(exchangeAccount: number, symbol: string, margin: number, positionIdx?: number): Promise<any> {
+        if (this.getMarginMode(exchangeAccount) !== BybitMarginMode.ISOLATED) {
+            throw new Error(`Bybit account ${exchangeAccount} does not use isolated margin`);
+        }
+
+        const client = this.getClient(exchangeAccount);
+
         try {
             const marginValue = this.formatMargin(margin);
-            const result = await this.client.addOrReduceMargin({
+            const result = await client.addOrReduceMargin({
                 category: CategoryType.LINEAR,
                 symbol,
                 margin: marginValue,
@@ -250,6 +284,7 @@ export class BybitService {
             return result;
         } catch (e) {
             this.captureError(e, 'bybit.changeMargin', {
+                exchangeAccount,
                 margin,
                 positionIdx,
                 symbol,
@@ -282,7 +317,7 @@ export class BybitService {
     }
 
     private async getInstrument(symbol: string): Promise<any> {
-        const result = await this.client.getInstrumentsInfo({
+        const result = await this.publicClient.getInstrumentsInfo({
             category: CategoryType.LINEAR,
             symbol,
         } as any);
@@ -300,8 +335,8 @@ export class BybitService {
         return instrument;
     }
 
-    private async getOpenPosition(symbol: string, positionIdx: 1 | 2): Promise<IBybitPosition> {
-        const positions = await this.getPositions(symbol);
+    private async getOpenPosition(exchangeAccount: number, symbol: string, positionIdx: 1 | 2): Promise<IBybitPosition> {
+        const positions = await this.getPositions(exchangeAccount, symbol);
 
         if (!positions) {
             throw new Error('Bybit positions response is empty');
@@ -322,14 +357,14 @@ export class BybitService {
         return position;
     }
 
-    private async waitForPositionClose(symbol: string, positionIdx: 1 | 2): Promise<void> {
+    private async waitForPositionClose(exchangeAccount: number, symbol: string, positionIdx: 1 | 2): Promise<void> {
         const attempts = 12;
         const delayMs = 500;
 
         for (let attempt = 0; attempt < attempts; attempt += 1) {
             await this.sleep(delayMs);
 
-            const positions = await this.getPositions(symbol);
+            const positions = await this.getPositions(exchangeAccount, symbol);
             const position = positions?.result?.list?.find((item) => item.positionIdx === positionIdx);
 
             if (!position || Number(position.size) <= 0) {
@@ -340,12 +375,12 @@ export class BybitService {
         throw new Error('Bybit position close was not confirmed');
     }
 
-    private async waitForClosedPnl(symbol: string, orderId: string): Promise<IBybitClosedPnl | null> {
+    private async waitForClosedPnl(exchangeAccount: number, symbol: string, orderId: string): Promise<IBybitClosedPnl | null> {
         const attempts = 10;
         const delayMs = 500;
 
         for (let attempt = 0; attempt < attempts; attempt += 1) {
-            const closedPnlResponse = await this.getClosedPnl(symbol);
+            const closedPnlResponse = await this.getClosedPnl(exchangeAccount, symbol);
             const closedPnl = closedPnlResponse.result?.list?.find((item) => item.orderId === orderId);
 
             if (closedPnl) {
@@ -358,8 +393,9 @@ export class BybitService {
         return null;
     }
 
-    private async getClosedPnl(symbol: string): Promise<IBybitClosedPnlResponse> {
-        const result = await this.client.getClosedPnL({
+    private async getClosedPnl(exchangeAccount: number, symbol: string): Promise<IBybitClosedPnlResponse> {
+        const client = this.getClient(exchangeAccount);
+        const result = await client.getClosedPnL({
             category: CategoryType.LINEAR,
             symbol,
             limit: 20,
@@ -370,6 +406,41 @@ export class BybitService {
         }
 
         return result as IBybitClosedPnlResponse;
+    }
+
+    private getClient(exchangeAccount: number): RestClientV5 {
+        const account = this.normalizeExchangeAccount(exchangeAccount);
+        const existingClient = this.clients.get(account);
+
+        if (existingClient) {
+            return existingClient;
+        }
+
+        const key = process.env[`BYBIT_API_KEY_${account}`];
+        const secret = process.env[`BYBIT_SECRET_KEY_${account}`];
+
+        if (!key || !secret) {
+            throw new Error(`Bybit credentials for exchange account ${account} are not configured`);
+        }
+
+        const client = new RestClientV5(
+            { key, secret },
+            { timeout: this.requestTimeoutMs },
+        );
+
+        this.clients.set(account, client);
+
+        return client;
+    }
+
+    private normalizeExchangeAccount(exchangeAccount: number): number {
+        const account = Number(exchangeAccount);
+
+        if (!Number.isInteger(account) || account < 1) {
+            throw new Error(`Invalid Bybit exchange account: ${exchangeAccount}`);
+        }
+
+        return account;
     }
 
     private calculateOrderQty(orderValue: number, price: number, lotSizeFilter?: any): string {

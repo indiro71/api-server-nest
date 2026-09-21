@@ -7,8 +7,9 @@ import { CreateOrderDto } from './order/dto/create-order.dto';
 import { PairService } from './pair/pair.service';
 import { PositionType } from '../services/mxc/mxc.interfaces';
 import { BybitService } from '../services/bybit/bybit.service';
+import { BybitMarginMode } from '../services/bybit/bybit.interfaces';
 import { Exchange, Position } from './trading.interfaces';
-import { getBybitPositions, getMexcPositions } from './trading.utils';
+import { getBybitPositions } from './trading.utils';
 import { Pair } from './pair/schemas/pair.schema';
 import { PushService } from '../push/push.service';
 import { ErrorLogService } from '../error-log/error-log.service';
@@ -39,6 +40,7 @@ setwarningpercent - Set warning price
 
 @Injectable()
 export class TradingService {
+    private readonly utcOffsetHours = this.getUtcOffsetHours();
     private isTraded: boolean;
     private isMonitoring: boolean;
     private isActiveTrade: boolean;
@@ -697,10 +699,19 @@ export class TradingService {
     }
 
     isWorkingTime(): boolean {
-        const now = new Date();
-        const hours = now.getHours();
+        const hours = (new Date().getUTCHours() + this.utcOffsetHours + 24) % 24;
 
         return !(hours >= 0 && hours < 9);
+    }
+
+    private getUtcOffsetHours(): number {
+        const utcOffsetHours = Number(process.env.UTC_OFFSET || '+3');
+
+        if (!Number.isInteger(utcOffsetHours) || utcOffsetHours < -12 || utcOffsetHours > 14) {
+            throw new Error('UTC_OFFSET must be an integer between -12 and +14');
+        }
+
+        return utcOffsetHours;
     }
 
     enqueueTelegramMessage(message: string): void {
@@ -775,7 +786,7 @@ export class TradingService {
 
         switch (pair.exchange) {
             case Exchange.MEXC: {
-                const price = await this.mxcService.getContractFairPrice(pair.contract);
+                const price = await this.bybitService.getContractFairPrice(pair.symbol);
                 pairCurrentPrice = +price;
                 break;
             }
@@ -807,159 +818,207 @@ export class TradingService {
             const pairs = await this.pairService.getAll();
 
             if (pairs?.length > 0 && !this.isTraded) {
-                const mexcPositionsResponse = await this.mxcService.getPositions();
-                const mexcPositions = getMexcPositions(mexcPositionsResponse.data);
-                await this.waiting();
+                const activePairs = pairs.filter((pair) => pair.isActive);
 
-                const bybitPositionsResponse = await this.bybitService.getPositions();
-                const bybitPositions = getBybitPositions(bybitPositionsResponse.result.list);
-                await this.waiting();
+                const bybitPositionsByAccount = new Map<number, Position[]>();
+                const bybitMarginModes = new Map<number, BybitMarginMode>();
+                const bybitAccounts = Array.from(new Set(
+                    activePairs
+                        .filter((pair) => pair.exchange === Exchange.BYBIT)
+                        .map((pair) => this.getPairExchangeAccount(pair)),
+                ));
+
+                for (const exchangeAccount of bybitAccounts) {
+                    try {
+                        const marginMode = this.bybitService.getMarginMode(exchangeAccount);
+                        const response = await this.bybitService.getPositions(exchangeAccount);
+                        bybitPositionsByAccount.set(
+                            exchangeAccount,
+                            getBybitPositions(response.result.list) || [],
+                        );
+                        bybitMarginModes.set(exchangeAccount, marginMode);
+                        await this.waiting();
+                    } catch (error) {
+                        this.captureError(error, 'trading.tradeMonitoring.bybitAccount', {
+                            exchangeAccount,
+                        });
+                    }
+                }
 
                 const messages = [];
                 const changeMarginPairs: Pair[] = [];
                 const updatedPairs: Pair[] = [];
 
-                if (bybitPositions?.length > 0) {
-                    for (const pair of pairs) {
-                        if (!pair.isActive) continue;
+                for (const pair of pairs) {
+                    if (!pair.isActive) continue;
 
-                        let positions: Position[] = [];
+                    let positions: Position[] = [];
+                    let bybitMarginMode: BybitMarginMode = null;
 
-                        switch (pair.exchange) {
-                            case Exchange.MEXC:
-                                positions = mexcPositions;
-                                break;
-                            case Exchange.BYBIT:
-                                positions = bybitPositions;
-                                break;
-                        }
+                    switch (pair.exchange) {
+                        case Exchange.MEXC:
+                            positions = this.getStoredPairPositions(pair);
+                            break;
+                        case Exchange.BYBIT: {
+                            const exchangeAccount = this.getPairExchangeAccount(pair);
 
-                        const pairCurrentPrice = await this.getPairCurrentPrice(pair);
-                        const longPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.LONG);
-                        const shortPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.SHORT);
-
-                        pair.currentPrice = pairCurrentPrice;
-                        pair.longPrice = longPosition?.holdAvgPrice || 0;
-                        pair.longMargin = longPosition?.oim || 0;
-
-                        const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
-                        const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;
-                        const longLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition?.liquidatePrice));
-                        const shortLiquidationPercent = 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition?.liquidatePrice, true));
-
-                        const allPositionIsMinimal = pair.longMargin < this.stopBuyLongLimit && pair.shortMargin < this.stopBuyShortLimit;
-
-                        pair.longAllMargin = longPosition?.im || 0;
-                        pair.shortPrice = shortPosition?.holdAvgPrice || 0;
-                        pair.shortMargin = shortPosition?.oim || 0;
-                        pair.shortAllMargin = shortPosition?.im || 0;
-                        pair.longPercent = longPercent
-                        pair.shortPercent = shortPercent
-                        pair.longLiquidatePercent = longLiquidationPercent;
-                        pair.shortLiquidatePercent = shortLiquidationPercent;
-
-                        if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
-                            const warningMessage = `🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`;
-
-                            this.enqueueTelegramMessage(warningMessage);
-                            await this.pushService.sendMessage('Trading monitor', warningMessage);
-                        }
-
-                        if (pair.longMargin > this.marginDifference && (pair.longLiquidatePercent > this.liquidationMaxPercent || pair.longLiquidatePercent < this.liquidationMinPercent)) {
-                            changeMarginPairs.push(pair);
-                        }
-
-                        if (pair.shortMargin > this.marginDifference && (pair.shortLiquidatePercent > this.liquidationMaxPercent || pair.shortLiquidatePercent < this.liquidationMinPercent)) {
-                            changeMarginPairs.push(pair);
-                        }
-
-                        if (longPosition) {
-                            //check long
-                            const longMargin = pair.longMargin - this.marginDifference;
-                            const correctionBuyLongPercent = Math.ceil(longMargin / pair.longMarginStep) * pair.buyLongCoefficient;
-
-                            let longNextBuyPercent = 0;
-
-                            const canBuy = allPositionIsMinimal || (pair.longMargin < pair.longMarginLimit && pair.shortMargin > this.stopBuyShortLimit);
-
-                            if (canBuy) {
-                                longNextBuyPercent = correctionBuyLongPercent || pair.buyLongCoefficient;
+                            if (!bybitPositionsByAccount.has(exchangeAccount)) {
+                                continue;
                             }
 
-                            // высчитывание следующей позиции покупки лонга
-                            if (longNextBuyPercent) {
-                                let longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
-                                if (longNextBuyPercent > pair.criticalPercent && !longPosition.autoAddIm) {
-                                    messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [AUTOBUY] \n Необходимо включить автодобавление маржи лонга`);
-                                }
+                            positions = bybitPositionsByAccount.get(exchangeAccount);
+                            bybitMarginMode = bybitMarginModes.get(exchangeAccount);
+                            break;
+                        }
+                    }
 
-                                pair.nextBuyLongPrice = longNextBuyPrice;
-                            } else {
-                                pair.nextBuyLongPriceWarning = false;
-                                pair.nextBuyLongPrice = 0;
+                    let pairCurrentPrice: number;
+
+                    try {
+                        pairCurrentPrice = await this.getPairCurrentPrice(pair);
+                    } catch (error) {
+                        this.captureError(error, 'trading.tradeMonitoring.pairPrice', {
+                            exchange: pair.exchange,
+                            pairId: pair._id,
+                            symbol: pair.symbol,
+                        });
+                        continue;
+                    }
+
+                    const longPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.LONG);
+                    const shortPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.SHORT);
+
+                    pair.currentPrice = pairCurrentPrice;
+                    pair.longPrice = longPosition?.holdAvgPrice || 0;
+                    pair.longMargin = longPosition?.oim || 0;
+                    pair.longAllMargin = longPosition?.im || 0;
+                    pair.shortPrice = shortPosition?.holdAvgPrice || 0;
+                    pair.shortMargin = shortPosition?.oim || 0;
+                    pair.shortAllMargin = shortPosition?.im || 0;
+
+                    const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
+                    const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;
+                    const usesPositionLiquidation = pair.exchange !== Exchange.BYBIT
+                        || bybitMarginMode === BybitMarginMode.ISOLATED;
+                    const longLiquidationPercent = usesPositionLiquidation && longPosition?.liquidatePrice
+                        ? 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition.liquidatePrice))
+                        : 0;
+                    const shortLiquidationPercent = usesPositionLiquidation && shortPosition?.liquidatePrice
+                        ? 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition.liquidatePrice, true))
+                        : 0;
+
+                    const allPositionIsMinimal = pair.longMargin < this.stopBuyLongLimit && pair.shortMargin < this.stopBuyShortLimit;
+
+                    pair.longPercent = longPercent
+                    pair.shortPercent = shortPercent
+                    pair.longLiquidatePercent = longLiquidationPercent;
+                    pair.shortLiquidatePercent = shortLiquidationPercent;
+
+                    if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
+                        const warningMessage = `🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`;
+
+                        this.enqueueTelegramMessage(warningMessage);
+                        await this.pushService.sendMessage('Trading monitor', warningMessage);
+                    }
+
+                    if (usesPositionLiquidation && pair.longMargin > this.marginDifference && (pair.longLiquidatePercent > this.liquidationMaxPercent || pair.longLiquidatePercent < this.liquidationMinPercent)) {
+                        changeMarginPairs.push(pair);
+                    }
+
+                    if (usesPositionLiquidation && pair.shortMargin > this.marginDifference && (pair.shortLiquidatePercent > this.liquidationMaxPercent || pair.shortLiquidatePercent < this.liquidationMinPercent)) {
+                        changeMarginPairs.push(pair);
+                    }
+
+                    if (longPosition) {
+                        //check long
+                        const longMargin = pair.longMargin - this.marginDifference;
+                        const correctionBuyLongPercent = Math.ceil(longMargin / pair.longMarginStep) * pair.buyLongCoefficient;
+
+                        let longNextBuyPercent = 0;
+
+                        const canBuy = allPositionIsMinimal || (pair.longMargin < pair.longMarginLimit && pair.shortMargin > this.stopBuyShortLimit);
+
+                        if (canBuy) {
+                            longNextBuyPercent = correctionBuyLongPercent || pair.buyLongCoefficient;
+                        }
+
+                        // высчитывание следующей позиции покупки лонга
+                        if (longNextBuyPercent) {
+                            let longNextBuyPrice = +(pair.longPrice - (pair.longPrice * longNextBuyPercent) / 100).toFixed(pair.round);
+                            if (usesPositionLiquidation && longNextBuyPercent > pair.criticalPercent && !longPosition.autoAddIm) {
+                                messages.push(`🚨 [${pair.name}] [${pair.exchange}] [LONG] [AUTOBUY] \n Необходимо включить автодобавление маржи лонга`);
                             }
 
-                            if (longPosition.liquidatePrice !== pair.longLiquidatePrice) pair.marginNotificationSending = false;
-
-                            pair.autoAddLongMargin = longPosition.autoAddIm;
-                            pair.longLiquidatePrice = longPosition.liquidatePrice;
-
-                            //проверка позиции продажи лонга
-                            const longSellPercent = pair.longMargin < pair.longMarginStep ? 1 : pair.sellPercent;
-                            const longSellPrice = +(pair.longPrice + (pair.longPrice * longSellPercent) / 100).toFixed(pair.round);
-
-                            pair.sellLongPrice = longSellPrice;
+                            pair.nextBuyLongPrice = longNextBuyPrice;
                         } else {
-                            pair.nextBuyLongPriceWarning = true;
+                            pair.nextBuyLongPriceWarning = false;
                             pair.nextBuyLongPrice = 0;
                         }
 
-                        if (shortPosition) {
-                            //check short
-                            const shortMargin = pair.shortMargin - this.marginDifference;
-                            const correctionBuyShortPercent = Math.ceil(shortMargin / pair.shortMarginStep) * pair.buyShortCoefficient;
+                        if (longPosition.liquidatePrice !== pair.longLiquidatePrice) pair.marginNotificationSending = false;
 
-                            let shortNextBuyPercent = 0;
+                        pair.autoAddLongMargin = usesPositionLiquidation && longPosition.autoAddIm;
+                        pair.longLiquidatePrice = usesPositionLiquidation ? longPosition.liquidatePrice : 0;
 
-                            const canBuy = pair.shortMargin < pair.shortMarginLimit && pair.longMargin > this.stopBuyLongLimit;
-                            // const canBuy = allPositionIsMinimal || (pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLongLimit);
+                        //проверка позиции продажи лонга
+                        const longSellPercent = pair.longMargin < pair.longMarginStep ? 1 : pair.sellPercent;
+                        const longSellPrice = +(pair.longPrice + (pair.longPrice * longSellPercent) / 100).toFixed(pair.round);
 
-                            if (canBuy) {
-                                shortNextBuyPercent = correctionBuyShortPercent || pair.buyShortCoefficient;
+                        pair.sellLongPrice = longSellPrice;
+                    } else {
+                        pair.nextBuyLongPriceWarning = true;
+                        pair.nextBuyLongPrice = 0;
+                        pair.autoAddLongMargin = false;
+                        pair.longLiquidatePrice = 0;
+                    }
+
+                    if (shortPosition) {
+                        //check short
+                        const shortMargin = pair.shortMargin - this.marginDifference;
+                        const correctionBuyShortPercent = Math.ceil(shortMargin / pair.shortMarginStep) * pair.buyShortCoefficient;
+
+                        let shortNextBuyPercent = 0;
+
+                        const canBuy = pair.shortMargin < pair.shortMarginLimit && pair.longMargin > this.stopBuyLongLimit;
+                        // const canBuy = allPositionIsMinimal || (pair.shortMargin < pair.shortMarginLimit && pair.longMargin > stopBuyLongLimit);
+
+                        if (canBuy) {
+                            shortNextBuyPercent = correctionBuyShortPercent || pair.buyShortCoefficient;
+                        }
+
+                        // высчитывание следующей позиции покупки шорта
+                        if (shortNextBuyPercent) {
+                            let shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
+                            if (usesPositionLiquidation && shortNextBuyPercent > pair.criticalPercent && !shortPosition.autoAddIm) {
+                                messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [AUTOBUY] \n Необходимо включить автодобавление маржи шорта`);
                             }
 
-                            // высчитывание следующей позиции покупки шорта
-                            if (shortNextBuyPercent) {
-                                let shortNextBuyPrice = +(pair.shortPrice + (pair.shortPrice * shortNextBuyPercent) / 100).toFixed(pair.round);
-                                if (shortNextBuyPercent > pair.criticalPercent && !shortPosition.autoAddIm) {
-                                    messages.push(`🚨 [${pair.name}] [${pair.exchange}] [SHORT] [AUTOBUY] \n Необходимо включить автодобавление маржи шорта`);
-                                }
-
-                                pair.nextBuyShortPrice = shortNextBuyPrice;
-                            } else {
-                                pair.nextBuyShortPriceWarning = false;
-                                pair.nextBuyShortPrice = 0;
-                            }
-
-                            if (shortPosition.liquidatePrice !== pair.shortLiquidatePrice) pair.marginNotificationSending = false;
-
-                            pair.autoAddShortMargin = shortPosition.autoAddIm;
-                            pair.shortLiquidatePrice = shortPosition.liquidatePrice;
-
-                            //проверка позиции продажи шорта
-                            const shortSellPercent = pair.shortMargin < pair.shortMarginStep ? 1 : pair.sellPercent;
-                            const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * shortSellPercent) / 100).toFixed(pair.round);
-
-                            pair.sellShortPrice = shortSellPrice;
+                            pair.nextBuyShortPrice = shortNextBuyPrice;
                         } else {
-                            pair.nextBuyShortPriceWarning = true;
+                            pair.nextBuyShortPriceWarning = false;
                             pair.nextBuyShortPrice = 0;
                         }
 
-                        pair.dateUpdate = new Date();
-                        await this.pairService.update(pair._id, pair);
-                        updatedPairs.push(pair);
+                        if (shortPosition.liquidatePrice !== pair.shortLiquidatePrice) pair.marginNotificationSending = false;
+
+                        pair.autoAddShortMargin = usesPositionLiquidation && shortPosition.autoAddIm;
+                        pair.shortLiquidatePrice = usesPositionLiquidation ? shortPosition.liquidatePrice : 0;
+
+                        //проверка позиции продажи шорта
+                        const shortSellPercent = pair.shortMargin < pair.shortMarginStep ? 1 : pair.sellPercent;
+                        const shortSellPrice = +(pair.shortPrice - (pair.shortPrice * shortSellPercent) / 100).toFixed(pair.round);
+
+                        pair.sellShortPrice = shortSellPrice;
+                    } else {
+                        pair.nextBuyShortPriceWarning = true;
+                        pair.nextBuyShortPrice = 0;
+                        pair.autoAddShortMargin = false;
+                        pair.shortLiquidatePrice = 0;
                     }
+
+                    pair.dateUpdate = new Date();
+                    await this.pairService.update(pair._id, pair);
+                    updatedPairs.push(pair);
                 }
 
                 await this.pushService.notifyTradingSignals({
@@ -1006,6 +1065,46 @@ export class TradingService {
                 response: error?.response?.data || error?.response,
             },
         });
+    }
+
+    private getPairExchangeAccount(pair: Pair): number {
+        const exchangeAccount = Number(pair.exchangeAccount || 1);
+
+        if (!Number.isInteger(exchangeAccount) || exchangeAccount < 1) {
+            throw new Error(`Invalid exchange account for ${pair.symbol}: ${pair.exchangeAccount}`);
+        }
+
+        return exchangeAccount;
+    }
+
+    private getStoredPairPositions(pair: Pair): Position[] {
+        const positions: Position[] = [];
+
+        if (Number(pair.longMargin) > 0 && Number(pair.longPrice) > 0) {
+            positions.push({
+                symbol: pair.symbol,
+                positionType: PositionType.LONG,
+                holdAvgPrice: Number(pair.longPrice),
+                im: Number(pair.longAllMargin) || Number(pair.longMargin),
+                oim: Number(pair.longMargin),
+                liquidatePrice: Number(pair.longLiquidatePrice) || 0,
+                autoAddIm: Boolean(pair.autoAddLongMargin),
+            });
+        }
+
+        if (Number(pair.shortMargin) > 0 && Number(pair.shortPrice) > 0) {
+            positions.push({
+                symbol: pair.symbol,
+                positionType: PositionType.SHORT,
+                holdAvgPrice: Number(pair.shortPrice),
+                im: Number(pair.shortAllMargin) || Number(pair.shortMargin),
+                oim: Number(pair.shortMargin),
+                liquidatePrice: Number(pair.shortLiquidatePrice) || 0,
+                autoAddIm: Boolean(pair.autoAddShortMargin),
+            });
+        }
+
+        return positions;
     }
 
     private getActiveTradingButtonsCount(pairs: Pair[]): number {
@@ -1076,6 +1175,9 @@ export class TradingService {
                 });
 
                 for (const pair of uniquePairs) {
+                    const exchangeAccount = pair.exchange === Exchange.BYBIT
+                        ? this.getPairExchangeAccount(pair)
+                        : 1;
                     const needAddLongMargin = pair?.longLiquidatePercent > this.liquidationMaxPercent && pair.longAllMargin < this.maxMargin;
                     const needAddShortMargin = pair?.shortLiquidatePercent > this.liquidationMaxPercent && pair.shortAllMargin < this.maxMargin;
 
@@ -1085,7 +1187,7 @@ export class TradingService {
                     if (needAddLongMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.addMargin(pair.symbol, longAddMarginValue, PositionType.LONG);
+                                await this.bybitService.addMargin(exchangeAccount, pair.symbol, longAddMarginValue, PositionType.LONG);
                                 messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [ADD] [${Math.floor(longAddMarginValue)}]`);
                                 break;
                         }
@@ -1094,7 +1196,7 @@ export class TradingService {
                     if (needAddShortMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.addMargin(pair.symbol, shortAddMarginValue, PositionType.SHORT);
+                                await this.bybitService.addMargin(exchangeAccount, pair.symbol, shortAddMarginValue, PositionType.SHORT);
                                 messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [ADD] [${Math.floor(shortAddMarginValue)}]`);
                                 break;
                         }
@@ -1109,7 +1211,7 @@ export class TradingService {
                     if (needRemoveLongMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.removeMargin(pair.symbol, longRemoveMarginValue, PositionType.LONG);
+                                await this.bybitService.removeMargin(exchangeAccount, pair.symbol, longRemoveMarginValue, PositionType.LONG);
                                 messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [REMOVE] [${Math.floor(longRemoveMarginValue)}]`);
                                 break;
                         }
@@ -1118,7 +1220,7 @@ export class TradingService {
                     if (needRemoveShortMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.removeMargin(pair.symbol, shortRemoveMarginValue, PositionType.SHORT);
+                                await this.bybitService.removeMargin(exchangeAccount, pair.symbol, shortRemoveMarginValue, PositionType.SHORT);
                                 messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [REMOVE] [${Math.floor(shortRemoveMarginValue)}]`);
                                 break;
                         }
