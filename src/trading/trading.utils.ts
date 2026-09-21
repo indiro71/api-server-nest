@@ -59,6 +59,7 @@ export const getBybitPositions = (positions: IBybitPosition[]): Position[] => {
                 holdAvgPrice: avgPrice,
                 im: totalMargin,
                 oim: baseMargin,
+                maintenanceMargin: Number(position.positionMM) || 0,
                 liquidatePrice: Number.isFinite(liquidatePrice) ? liquidatePrice : 0,
                 autoAddIm: position.autoAddMargin === 1,
             };

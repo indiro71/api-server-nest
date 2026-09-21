@@ -12,6 +12,7 @@ export interface Position {
     holdAvgPrice: number; // цена позиции
     im: number;// суммарная маржа
     oim: number; // маржа
+    maintenanceMargin?: number;
     liquidatePrice: number;
     autoAddIm: boolean; // автопродление
 }

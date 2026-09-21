@@ -6,7 +6,7 @@ import { OrderService } from './order/order.service';
 import { CreateOrderDto } from './order/dto/create-order.dto';
 import { PairService } from './pair/pair.service';
 import { PositionType } from '../services/mxc/mxc.interfaces';
-import { BybitService } from '../services/bybit/bybit.service';
+import { BybitAccountMarginRisk, BybitService } from '../services/bybit/bybit.service';
 import { BybitMarginMode } from '../services/bybit/bybit.interfaces';
 import { Exchange, Position } from './trading.interfaces';
 import { getBybitPositions } from './trading.utils';
@@ -268,7 +268,7 @@ export class TradingService {
 
     async inited() {
         try {
-            await this.telegramService.sendMessage("Trading on " + new Date());
+            await this.telegramService.sendMessage(`Trading on ${this.formatDate(new Date())}`);
         } catch (e) {
             this.captureError(e, 'trading.inited');
         }
@@ -714,6 +714,23 @@ export class TradingService {
         return utcOffsetHours;
     }
 
+    private formatDate(date: Date): string {
+        const shiftedDate = new Date(date.getTime() + this.utcOffsetHours * 60 * 60 * 1000);
+        const formattedDate = new Intl.DateTimeFormat('ru-RU', {
+            day: '2-digit',
+            hour: '2-digit',
+            hour12: false,
+            minute: '2-digit',
+            month: '2-digit',
+            second: '2-digit',
+            timeZone: 'UTC',
+            year: 'numeric',
+        }).format(shiftedDate);
+        const offset = `${this.utcOffsetHours >= 0 ? '+' : ''}${this.utcOffsetHours}`;
+
+        return `${formattedDate} UTC${offset}`;
+    }
+
     enqueueTelegramMessage(message: string): void {
         const normalizedMessage = message?.trim();
 
@@ -822,6 +839,7 @@ export class TradingService {
 
                 const bybitPositionsByAccount = new Map<number, Position[]>();
                 const bybitMarginModes = new Map<number, BybitMarginMode>();
+                const bybitMarginRiskByAccount = new Map<number, BybitAccountMarginRisk>();
                 const bybitAccounts = Array.from(new Set(
                     activePairs
                         .filter((pair) => pair.exchange === Exchange.BYBIT)
@@ -837,6 +855,18 @@ export class TradingService {
                             getBybitPositions(response.result.list) || [],
                         );
                         bybitMarginModes.set(exchangeAccount, marginMode);
+
+                        if (marginMode === BybitMarginMode.CROSS) {
+                            try {
+                                const marginRisk = await this.bybitService.getAccountMarginRisk(exchangeAccount);
+                                bybitMarginRiskByAccount.set(exchangeAccount, marginRisk);
+                            } catch (error) {
+                                this.captureError(error, 'trading.tradeMonitoring.bybitAccountMarginRisk', {
+                                    exchangeAccount,
+                                });
+                            }
+                        }
+
                         await this.waiting();
                     } catch (error) {
                         this.captureError(error, 'trading.tradeMonitoring.bybitAccount', {
@@ -854,6 +884,7 @@ export class TradingService {
 
                     let positions: Position[] = [];
                     let bybitMarginMode: BybitMarginMode = null;
+                    let bybitMarginRisk: BybitAccountMarginRisk = null;
 
                     switch (pair.exchange) {
                         case Exchange.MEXC:
@@ -868,6 +899,7 @@ export class TradingService {
 
                             positions = bybitPositionsByAccount.get(exchangeAccount);
                             bybitMarginMode = bybitMarginModes.get(exchangeAccount);
+                            bybitMarginRisk = bybitMarginRiskByAccount.get(exchangeAccount);
                             break;
                         }
                     }
@@ -892,20 +924,26 @@ export class TradingService {
                     pair.longPrice = longPosition?.holdAvgPrice || 0;
                     pair.longMargin = longPosition?.oim || 0;
                     pair.longAllMargin = longPosition?.im || 0;
+                    pair.longMaintenanceMargin = longPosition?.maintenanceMargin || 0;
                     pair.shortPrice = shortPosition?.holdAvgPrice || 0;
                     pair.shortMargin = shortPosition?.oim || 0;
                     pair.shortAllMargin = shortPosition?.im || 0;
+                    pair.shortMaintenanceMargin = shortPosition?.maintenanceMargin || 0;
 
                     const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
                     const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;
                     const usesPositionLiquidation = pair.exchange !== Exchange.BYBIT
                         || bybitMarginMode === BybitMarginMode.ISOLATED;
-                    const longLiquidationPercent = usesPositionLiquidation && longPosition?.liquidatePrice
-                        ? 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition.liquidatePrice))
-                        : 0;
-                    const shortLiquidationPercent = usesPositionLiquidation && shortPosition?.liquidatePrice
-                        ? 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition.liquidatePrice, true))
-                        : 0;
+                    const longLiquidationPercent = bybitMarginMode === BybitMarginMode.CROSS
+                        ? this.getPositionAccountMmContribution(longPosition, bybitMarginRisk)
+                        : usesPositionLiquidation && longPosition?.liquidatePrice
+                            ? 100 - Math.round(this.getPercent(pairCurrentPrice, longPosition.liquidatePrice))
+                            : 0;
+                    const shortLiquidationPercent = bybitMarginMode === BybitMarginMode.CROSS
+                        ? this.getPositionAccountMmContribution(shortPosition, bybitMarginRisk)
+                        : usesPositionLiquidation && shortPosition?.liquidatePrice
+                            ? 100 - Math.round(this.getPercent(pairCurrentPrice, shortPosition.liquidatePrice, true))
+                            : 0;
 
                     const allPositionIsMinimal = pair.longMargin < this.stopBuyLongLimit && pair.shortMargin < this.stopBuyShortLimit;
 
@@ -913,6 +951,7 @@ export class TradingService {
                     pair.shortPercent = shortPercent
                     pair.longLiquidatePercent = longLiquidationPercent;
                     pair.shortLiquidatePercent = shortLiquidationPercent;
+                    pair.marginMode = bybitMarginMode;
 
                     if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
                         const warningMessage = `🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`;
@@ -1105,6 +1144,30 @@ export class TradingService {
         }
 
         return positions;
+    }
+
+    private getPositionAccountMmContribution(
+        position: Position | undefined,
+        accountRisk: BybitAccountMarginRisk | undefined,
+    ): number {
+        const positionMaintenanceMargin = Number(position?.maintenanceMargin);
+        const accountMMRate = Number(accountRisk?.accountMMRate);
+        const totalMaintenanceMargin = Number(accountRisk?.totalMaintenanceMargin);
+
+        if (
+            !Number.isFinite(positionMaintenanceMargin)
+            || positionMaintenanceMargin <= 0
+            || !Number.isFinite(accountMMRate)
+            || accountMMRate <= 0
+            || !Number.isFinite(totalMaintenanceMargin)
+            || totalMaintenanceMargin <= 0
+        ) {
+            return 0;
+        }
+
+        const contributionPercent = accountMMRate * 100 * positionMaintenanceMargin / totalMaintenanceMargin;
+
+        return Number(contributionPercent.toFixed(4));
     }
 
     private getActiveTradingButtonsCount(pairs: Pair[]): number {
