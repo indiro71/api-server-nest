@@ -71,8 +71,14 @@ export class BybitService {
             const response = await this.publicClient.getTickers({
                 category: CategoryType.LINEAR,
                 symbol
-            })
-            return response.result.list[0].lastPrice;
+            });
+            const ticker = response?.result?.list?.[0];
+
+            if (response?.retCode !== 0 || !ticker?.lastPrice) {
+                throw new Error(response?.retMsg || `Bybit ticker not found for ${symbol}`);
+            }
+
+            return ticker.lastPrice;
         } catch (e) {
             this.captureError(e, 'bybit.getContractFairPrice', { symbol });
             throw e;

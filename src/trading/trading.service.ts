@@ -9,7 +9,7 @@ import { PositionType } from '../services/mxc/mxc.interfaces';
 import { BybitService } from '../services/bybit/bybit.service';
 import { BybitMarginMode } from '../services/bybit/bybit.interfaces';
 import { Exchange, Position } from './trading.interfaces';
-import { getBybitPositions, getMexcPositions } from './trading.utils';
+import { getBybitPositions } from './trading.utils';
 import { Pair } from './pair/schemas/pair.schema';
 import { PushService } from '../push/push.service';
 import { ErrorLogService } from '../error-log/error-log.service';
@@ -40,6 +40,7 @@ setwarningpercent - Set warning price
 
 @Injectable()
 export class TradingService {
+    private readonly utcOffsetHours = this.getUtcOffsetHours();
     private isTraded: boolean;
     private isMonitoring: boolean;
     private isActiveTrade: boolean;
@@ -698,10 +699,19 @@ export class TradingService {
     }
 
     isWorkingTime(): boolean {
-        const now = new Date();
-        const hours = now.getHours();
+        const hours = (new Date().getUTCHours() + this.utcOffsetHours + 24) % 24;
 
         return !(hours >= 0 && hours < 9);
+    }
+
+    private getUtcOffsetHours(): number {
+        const utcOffsetHours = Number(process.env.UTC_OFFSET || '+3');
+
+        if (!Number.isInteger(utcOffsetHours) || utcOffsetHours < -12 || utcOffsetHours > 14) {
+            throw new Error('UTC_OFFSET must be an integer between -12 and +14');
+        }
+
+        return utcOffsetHours;
     }
 
     enqueueTelegramMessage(message: string): void {
@@ -776,7 +786,7 @@ export class TradingService {
 
         switch (pair.exchange) {
             case Exchange.MEXC: {
-                const price = await this.mxcService.getContractFairPrice(pair.contract);
+                const price = await this.bybitService.getContractFairPrice(pair.symbol);
                 pairCurrentPrice = +price;
                 break;
             }
@@ -809,13 +819,6 @@ export class TradingService {
 
             if (pairs?.length > 0 && !this.isTraded) {
                 const activePairs = pairs.filter((pair) => pair.isActive);
-                let mexcPositions: Position[] = [];
-
-                if (activePairs.some((pair) => pair.exchange === Exchange.MEXC)) {
-                    const mexcPositionsResponse = await this.mxcService.getPositions();
-                    mexcPositions = getMexcPositions(mexcPositionsResponse.data);
-                    await this.waiting();
-                }
 
                 const bybitPositionsByAccount = new Map<number, Position[]>();
                 const bybitMarginModes = new Map<number, BybitMarginMode>();
@@ -854,7 +857,7 @@ export class TradingService {
 
                     switch (pair.exchange) {
                         case Exchange.MEXC:
-                            positions = mexcPositions;
+                            positions = this.getStoredPairPositions(pair);
                             break;
                         case Exchange.BYBIT: {
                             const exchangeAccount = this.getPairExchangeAccount(pair);
@@ -869,7 +872,19 @@ export class TradingService {
                         }
                     }
 
-                    const pairCurrentPrice = await this.getPairCurrentPrice(pair);
+                    let pairCurrentPrice: number;
+
+                    try {
+                        pairCurrentPrice = await this.getPairCurrentPrice(pair);
+                    } catch (error) {
+                        this.captureError(error, 'trading.tradeMonitoring.pairPrice', {
+                            exchange: pair.exchange,
+                            pairId: pair._id,
+                            symbol: pair.symbol,
+                        });
+                        continue;
+                    }
+
                     const longPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.LONG);
                     const shortPosition = positions?.find(position => position.symbol === pair.symbol && position.positionType === PositionType.SHORT);
 
@@ -1060,6 +1075,36 @@ export class TradingService {
         }
 
         return exchangeAccount;
+    }
+
+    private getStoredPairPositions(pair: Pair): Position[] {
+        const positions: Position[] = [];
+
+        if (Number(pair.longMargin) > 0 && Number(pair.longPrice) > 0) {
+            positions.push({
+                symbol: pair.symbol,
+                positionType: PositionType.LONG,
+                holdAvgPrice: Number(pair.longPrice),
+                im: Number(pair.longAllMargin) || Number(pair.longMargin),
+                oim: Number(pair.longMargin),
+                liquidatePrice: Number(pair.longLiquidatePrice) || 0,
+                autoAddIm: Boolean(pair.autoAddLongMargin),
+            });
+        }
+
+        if (Number(pair.shortMargin) > 0 && Number(pair.shortPrice) > 0) {
+            positions.push({
+                symbol: pair.symbol,
+                positionType: PositionType.SHORT,
+                holdAvgPrice: Number(pair.shortPrice),
+                im: Number(pair.shortAllMargin) || Number(pair.shortMargin),
+                oim: Number(pair.shortMargin),
+                liquidatePrice: Number(pair.shortLiquidatePrice) || 0,
+                autoAddIm: Boolean(pair.autoAddShortMargin),
+            });
+        }
+
+        return positions;
     }
 
     private getActiveTradingButtonsCount(pairs: Pair[]): number {
