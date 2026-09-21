@@ -13,6 +13,7 @@ export interface Position {
     im: number;// суммарная маржа
     oim: number; // маржа
     maintenanceMargin?: number;
+    unrealisedPnl?: number;
     liquidatePrice: number;
     autoAddIm: boolean; // автопродление
 }

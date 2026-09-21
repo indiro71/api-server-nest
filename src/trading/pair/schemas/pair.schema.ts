@@ -153,6 +153,12 @@ export class Pair {
     })
     longMaintenanceMargin: number;
 
+    @ApiProperty({ example: -25, description: 'Long Unrealised PnL' })
+    @Prop({
+        default: 0,
+    })
+    longUnrealisedPnl: number;
+
     @ApiProperty({ example: 100, description: 'Short price' })
     @Prop({
         default: 0.1,
@@ -176,6 +182,12 @@ export class Pair {
         default: 0,
     })
     shortMaintenanceMargin: number;
+
+    @ApiProperty({ example: -25, description: 'Short Unrealised PnL' })
+    @Prop({
+        default: 0,
+    })
+    shortUnrealisedPnl: number;
 
     @ApiProperty({
         example: '1624216164414',
