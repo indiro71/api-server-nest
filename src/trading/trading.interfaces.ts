@@ -14,6 +14,7 @@ export interface Position {
     oim: number; // маржа
     maintenanceMargin?: number;
     unrealisedPnl?: number;
+    realisedPnl?: number;
     liquidatePrice: number;
     autoAddIm: boolean; // автопродление
 }

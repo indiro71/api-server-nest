@@ -926,11 +926,13 @@ export class TradingService {
                     pair.longAllMargin = longPosition?.im || 0;
                     pair.longMaintenanceMargin = longPosition?.maintenanceMargin || 0;
                     pair.longUnrealisedPnl = longPosition?.unrealisedPnl || 0;
+                    pair.longRealisedPnl = longPosition?.realisedPnl || 0;
                     pair.shortPrice = shortPosition?.holdAvgPrice || 0;
                     pair.shortMargin = shortPosition?.oim || 0;
                     pair.shortAllMargin = shortPosition?.im || 0;
                     pair.shortMaintenanceMargin = shortPosition?.maintenanceMargin || 0;
                     pair.shortUnrealisedPnl = shortPosition?.unrealisedPnl || 0;
+                    pair.shortRealisedPnl = shortPosition?.realisedPnl || 0;
 
                     const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
                     const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;

@@ -159,6 +159,12 @@ export class Pair {
     })
     longUnrealisedPnl: number;
 
+    @ApiProperty({ example: -5, description: 'Long Cumulative Realised PnL' })
+    @Prop({
+        default: 0,
+    })
+    longRealisedPnl: number;
+
     @ApiProperty({ example: 100, description: 'Short price' })
     @Prop({
         default: 0.1,
@@ -188,6 +194,12 @@ export class Pair {
         default: 0,
     })
     shortUnrealisedPnl: number;
+
+    @ApiProperty({ example: -5, description: 'Short Cumulative Realised PnL' })
+    @Prop({
+        default: 0,
+    })
+    shortRealisedPnl: number;
 
     @ApiProperty({
         example: '1624216164414',
