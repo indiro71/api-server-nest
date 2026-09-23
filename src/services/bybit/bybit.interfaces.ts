@@ -78,6 +78,7 @@ export interface IBybitPosition {
     leverage: string;
     positionStatus: string;
     unrealisedPnl: string;
+    curRealisedPnl: string;
     cumRealisedPnl: string;
     createdTime: string;
     updatedTime: string;
