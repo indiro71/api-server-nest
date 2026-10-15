@@ -14,6 +14,20 @@ import { Pair } from './pair/schemas/pair.schema';
 import { PushService } from '../push/push.service';
 import { ErrorLogService } from '../error-log/error-log.service';
 
+class TradeMonitoringDeadlineError extends Error {
+    constructor(timeoutMs: number) {
+        super(`Trade monitoring deadline of ${timeoutMs}ms exceeded`);
+        this.name = 'TradeMonitoringDeadlineError';
+    }
+}
+
+class BybitCircuitOpenError extends Error {
+    constructor(cooldownMs: number) {
+        super(`Bybit circuit breaker is open for ${cooldownMs}ms`);
+        this.name = 'BybitCircuitOpenError';
+    }
+}
+
 /* tg commands---------------
 togglemonitoring - Toggle Monitoring Price
 togglenightstat - Toggle Night Notifications
@@ -41,6 +55,9 @@ setwarningpercent - Set warning price
 @Injectable()
 export class TradingService {
     private readonly utcOffsetHours = this.getUtcOffsetHours();
+    private readonly tradeMonitoringDeadlineMs = this.getPositiveEnvNumber('TRADE_MONITORING_DEADLINE_MS', 45_000);
+    private readonly bybitCircuitFailureThreshold = this.getPositiveEnvNumber('BYBIT_CIRCUIT_FAILURE_THRESHOLD', 3);
+    private readonly bybitCircuitCooldownMs = this.getPositiveEnvNumber('BYBIT_CIRCUIT_COOLDOWN_MS', 60_000);
     private isTraded: boolean;
     private isMonitoring: boolean;
     private isActiveTrade: boolean;
@@ -66,6 +83,8 @@ export class TradingService {
     private nightMessages: string[];
     private telegramMessageQueue: string[];
     private telegramMessageQueueFlushing: boolean;
+    private bybitConsecutiveTimeouts: number;
+    private bybitCircuitOpenUntil: number;
 
     constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pushService: PushService, private readonly errorLogService: ErrorLogService) {
         this.isTraded = false;
@@ -91,6 +110,8 @@ export class TradingService {
         this.nightMessages = [];
         this.telegramMessageQueue = [];
         this.telegramMessageQueueFlushing = false;
+        this.bybitConsecutiveTimeouts = 0;
+        this.bybitCircuitOpenUntil = 0;
         this.inited();
         this.listenTg();
     }
@@ -828,6 +849,9 @@ export class TradingService {
     async tradeMonitoring() {
         if (!this.isActiveMonitoring) return;
         if (this.isMonitoring) return;
+        if (this.isBybitCircuitOpen()) return;
+
+        const deadlineAt = Date.now() + this.tradeMonitoringDeadlineMs;
 
         try {
             this.isMonitoring = true;
@@ -847,9 +871,14 @@ export class TradingService {
                 ));
 
                 for (const exchangeAccount of bybitAccounts) {
+                    this.assertTradeMonitoringDeadline(deadlineAt);
+
                     try {
                         const marginMode = this.bybitService.getMarginMode(exchangeAccount);
-                        const response = await this.bybitService.getPositions(exchangeAccount);
+                        const response = await this.runBybitMonitoringRequest(
+                            () => this.bybitService.getPositions(exchangeAccount),
+                            deadlineAt,
+                        );
                         bybitPositionsByAccount.set(
                             exchangeAccount,
                             getBybitPositions(response.result.list) || [],
@@ -858,9 +887,14 @@ export class TradingService {
 
                         if (marginMode === BybitMarginMode.CROSS) {
                             try {
-                                const marginRisk = await this.bybitService.getAccountMarginRisk(exchangeAccount);
+                                const marginRisk = await this.runBybitMonitoringRequest(
+                                    () => this.bybitService.getAccountMarginRisk(exchangeAccount),
+                                    deadlineAt,
+                                );
                                 bybitMarginRiskByAccount.set(exchangeAccount, marginRisk);
                             } catch (error) {
+                                if (this.shouldStopTradeMonitoring(error)) throw error;
+
                                 this.captureError(error, 'trading.tradeMonitoring.bybitAccountMarginRisk', {
                                     exchangeAccount,
                                 });
@@ -869,6 +903,8 @@ export class TradingService {
 
                         await this.waiting();
                     } catch (error) {
+                        if (this.shouldStopTradeMonitoring(error)) throw error;
+
                         this.captureError(error, 'trading.tradeMonitoring.bybitAccount', {
                             exchangeAccount,
                         });
@@ -880,6 +916,8 @@ export class TradingService {
                 const updatedPairs: Pair[] = [];
 
                 for (const pair of pairs) {
+                    this.assertTradeMonitoringDeadline(deadlineAt);
+
                     if (!pair.isActive) continue;
 
                     let positions: Position[] = [];
@@ -907,8 +945,13 @@ export class TradingService {
                     let pairCurrentPrice: number;
 
                     try {
-                        pairCurrentPrice = await this.getPairCurrentPrice(pair);
+                        pairCurrentPrice = await this.runBybitMonitoringRequest(
+                            () => this.getPairCurrentPrice(pair),
+                            deadlineAt,
+                        );
                     } catch (error) {
+                        if (this.shouldStopTradeMonitoring(error)) throw error;
+
                         this.captureError(error, 'trading.tradeMonitoring.pairPrice', {
                             exchange: pair.exchange,
                             pairId: pair._id,
@@ -1066,12 +1109,13 @@ export class TradingService {
                     updatedPairs.push(pair);
                 }
 
+                this.assertTradeMonitoringDeadline(deadlineAt);
                 await this.pushService.notifyTradingSignals({
                     activeButtonsCount: this.getActiveTradingButtonsCount(updatedPairs),
                 });
 
                 if (changeMarginPairs?.length > 0) {
-                    const marginMessages = await this.changeMargin(changeMarginPairs);
+                    const marginMessages = await this.changeMargin(changeMarginPairs, deadlineAt);
                     messages.push(...marginMessages);
                 }
 
@@ -1091,7 +1135,9 @@ export class TradingService {
                 }
             }
         } catch (e) {
-            this.captureError(e, 'trading.tradeMonitoring');
+            if (!(e instanceof BybitCircuitOpenError)) {
+                this.captureError(e, 'trading.tradeMonitoring');
+            }
             // if (this.isWorkingTime()) {
             //   await this.telegramService.sendMessage(`Ошибка monitorPairs: ${e.message}`);
             // }
@@ -1110,6 +1156,91 @@ export class TradingService {
                 response: error?.response?.data || error?.response,
             },
         });
+    }
+
+    private async runBybitMonitoringRequest<T>(request: () => Promise<T>, deadlineAt: number): Promise<T> {
+        if (this.isBybitCircuitOpen()) {
+            throw new BybitCircuitOpenError(this.bybitCircuitCooldownMs);
+        }
+
+        const remainingMs = deadlineAt - Date.now();
+
+        if (remainingMs <= 0) {
+            throw new TradeMonitoringDeadlineError(this.tradeMonitoringDeadlineMs);
+        }
+
+        let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+
+        try {
+            const result = await Promise.race([
+                request(),
+                new Promise<never>((_, reject) => {
+                    deadlineTimer = setTimeout(
+                        () => reject(new TradeMonitoringDeadlineError(this.tradeMonitoringDeadlineMs)),
+                        remainingMs,
+                    );
+                }),
+            ]);
+
+            this.bybitConsecutiveTimeouts = 0;
+            return result;
+        } catch (error) {
+            if (error instanceof TradeMonitoringDeadlineError || this.isBybitTimeoutError(error)) {
+                this.registerBybitTimeout();
+
+                if (this.isBybitCircuitOpen()) {
+                    throw new BybitCircuitOpenError(this.bybitCircuitCooldownMs);
+                }
+            }
+
+            throw error;
+        } finally {
+            if (deadlineTimer) clearTimeout(deadlineTimer);
+        }
+    }
+
+    private registerBybitTimeout(): void {
+        this.bybitConsecutiveTimeouts += 1;
+
+        if (this.bybitConsecutiveTimeouts < this.bybitCircuitFailureThreshold) return;
+
+        this.bybitCircuitOpenUntil = Date.now() + this.bybitCircuitCooldownMs;
+        this.captureError(
+            new Error(`Bybit circuit breaker opened after ${this.bybitConsecutiveTimeouts} consecutive timeouts`),
+            'trading.bybitCircuit.open',
+            {
+                cooldownMs: this.bybitCircuitCooldownMs,
+                failureThreshold: this.bybitCircuitFailureThreshold,
+                openUntil: new Date(this.bybitCircuitOpenUntil),
+            },
+        );
+    }
+
+    private isBybitTimeoutError(error: any): boolean {
+        const code = String(error?.code || '').toUpperCase();
+        const message = String(error?.message || '').toLowerCase();
+
+        return ['ECONNABORTED', 'ETIMEDOUT'].includes(code) || message.includes('timeout');
+    }
+
+    private isBybitCircuitOpen(): boolean {
+        return Date.now() < this.bybitCircuitOpenUntil;
+    }
+
+    private assertTradeMonitoringDeadline(deadlineAt: number): void {
+        if (Date.now() >= deadlineAt) {
+            throw new TradeMonitoringDeadlineError(this.tradeMonitoringDeadlineMs);
+        }
+    }
+
+    private shouldStopTradeMonitoring(error: any): boolean {
+        return error instanceof TradeMonitoringDeadlineError || error instanceof BybitCircuitOpenError;
+    }
+
+    private getPositiveEnvNumber(name: string, fallback: number): number {
+        const value = Number(process.env[name]);
+
+        return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
     }
 
     private getPairExchangeAccount(pair: Pair): number {
@@ -1234,7 +1365,7 @@ export class TradingService {
         return hasReachedSellPrice || hasProfitableLargeMargin;
     }
 
-    async changeMargin(pairs: Pair[]): Promise<string[]> {
+    async changeMargin(pairs: Pair[], deadlineAt?: number): Promise<string[]> {
         if (pairs?.length > 0) {
             try {
                 const messages = [];
@@ -1244,6 +1375,8 @@ export class TradingService {
                 });
 
                 for (const pair of uniquePairs) {
+                    if (deadlineAt) this.assertTradeMonitoringDeadline(deadlineAt);
+
                     const exchangeAccount = pair.exchange === Exchange.BYBIT
                         ? this.getPairExchangeAccount(pair)
                         : 1;
@@ -1256,7 +1389,10 @@ export class TradingService {
                     if (needAddLongMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.addMargin(exchangeAccount, pair.symbol, longAddMarginValue, PositionType.LONG);
+                                await this.runBybitMonitoringRequest(
+                                    () => this.bybitService.addMargin(exchangeAccount, pair.symbol, longAddMarginValue, PositionType.LONG),
+                                    deadlineAt || Date.now() + this.tradeMonitoringDeadlineMs,
+                                );
                                 messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [ADD] [${Math.floor(longAddMarginValue)}]`);
                                 break;
                         }
@@ -1265,7 +1401,10 @@ export class TradingService {
                     if (needAddShortMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.addMargin(exchangeAccount, pair.symbol, shortAddMarginValue, PositionType.SHORT);
+                                await this.runBybitMonitoringRequest(
+                                    () => this.bybitService.addMargin(exchangeAccount, pair.symbol, shortAddMarginValue, PositionType.SHORT),
+                                    deadlineAt || Date.now() + this.tradeMonitoringDeadlineMs,
+                                );
                                 messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [ADD] [${Math.floor(shortAddMarginValue)}]`);
                                 break;
                         }
@@ -1280,7 +1419,10 @@ export class TradingService {
                     if (needRemoveLongMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.removeMargin(exchangeAccount, pair.symbol, longRemoveMarginValue, PositionType.LONG);
+                                await this.runBybitMonitoringRequest(
+                                    () => this.bybitService.removeMargin(exchangeAccount, pair.symbol, longRemoveMarginValue, PositionType.LONG),
+                                    deadlineAt || Date.now() + this.tradeMonitoringDeadlineMs,
+                                );
                                 messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [LONG] [REMOVE] [${Math.floor(longRemoveMarginValue)}]`);
                                 break;
                         }
@@ -1289,7 +1431,10 @@ export class TradingService {
                     if (needRemoveShortMargin) {
                         switch (pair.exchange) {
                             case Exchange.BYBIT:
-                                await this.bybitService.removeMargin(exchangeAccount, pair.symbol, shortRemoveMarginValue, PositionType.SHORT);
+                                await this.runBybitMonitoringRequest(
+                                    () => this.bybitService.removeMargin(exchangeAccount, pair.symbol, shortRemoveMarginValue, PositionType.SHORT),
+                                    deadlineAt || Date.now() + this.tradeMonitoringDeadlineMs,
+                                );
                                 messages.push(`⚠️ [${pair.name}] [${pair.exchange}] [SHORT] [REMOVE] [${Math.floor(shortRemoveMarginValue)}]`);
                                 break;
                         }
@@ -1298,6 +1443,8 @@ export class TradingService {
 
                 return messages;
             } catch (err) {
+                if (this.shouldStopTradeMonitoring(err)) throw err;
+
                 this.captureError(err, 'trading.changeMargin');
                 this.enqueueTelegramMessage(`Ошибка changeMargin: ${err.message}`);
 
