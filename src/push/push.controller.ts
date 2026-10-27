@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PushSubscriptionDto } from './dto/push-subscription.dto';
@@ -21,7 +29,17 @@ export class PushController {
   }
 
   @Delete('/subscribe')
-  unsubscribe(@Body() dto: PushSubscriptionDto) {
-    return this.pushService.unsubscribe(dto);
+  unsubscribe(@Body() dto: PushSubscriptionDto, @Req() req) {
+    return this.pushService.unsubscribe(dto, req.user._id);
+  }
+
+  @Post('/test')
+  test(@Body() dto: { endpoint: string }, @Req() req) {
+    return this.pushService.testPush(dto?.endpoint, req.user._id);
+  }
+
+  @Post('/status')
+  status(@Body() dto: { endpoint: string; eventId?: string }, @Req() req) {
+    return this.pushService.status(dto?.endpoint, req.user._id, dto?.eventId);
   }
 }

@@ -9,6 +9,9 @@ class PushSubscriptionKeysDto {
 }
 
 export class PushSubscriptionDto {
+  @ApiProperty({ required: false })
+  readonly appUrl?: string;
+
   @ApiProperty()
   readonly endpoint: string;
 

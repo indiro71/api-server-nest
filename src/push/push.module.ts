@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth/auth.module';
-import { ErrorLogModule } from '../error-log/error-log.module';
 import { PushController } from './push.controller';
 import { PushService } from './push.service';
+import {
+  PushDeliveryEntity,
+  PushDeliverySchema,
+} from './schemas/push-delivery.schema';
 import {
   PushSubscriptionEntity,
   PushSubscriptionSchema,
@@ -14,9 +17,9 @@ import {
   imports: [
     MongooseModule.forFeature([
       { name: PushSubscriptionEntity.name, schema: PushSubscriptionSchema },
+      { name: PushDeliveryEntity.name, schema: PushDeliverySchema },
     ]),
     AuthModule,
-    ErrorLogModule,
   ],
   providers: [PushService],
   exports: [PushService],
