@@ -19,6 +19,9 @@ export class PushSubscriptionEntity {
   @Prop()
   userId?: string;
 
+  @Prop()
+  appUrl?: string;
+
   @Prop({ default: Date.now })
   dateCreate: Date;
 
@@ -26,4 +29,6 @@ export class PushSubscriptionEntity {
   dateUpdate: Date;
 }
 
-export const PushSubscriptionSchema = SchemaFactory.createForClass(PushSubscriptionEntity);
+export const PushSubscriptionSchema = SchemaFactory.createForClass(
+  PushSubscriptionEntity,
+);

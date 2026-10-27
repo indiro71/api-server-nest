@@ -752,6 +752,17 @@ export class TradingService {
         return `${formattedDate} UTC${offset}`;
     }
 
+    private async notifyEmergency(message: string): Promise<void> {
+        // Price-risk warnings bypass the ordinary night queue in both channels.
+        // A failure in one channel must not prevent the other from being attempted.
+        await Promise.all([
+            this.pushService.sendEmergencyMessage('Trading monitor', message)
+                .catch(error => this.captureError(error, 'trading.emergencyPush')),
+            this.telegramService.sendMessage(message)
+                .catch(error => this.captureError(error, 'trading.emergencyTelegram')),
+        ]);
+    }
+
     enqueueTelegramMessage(message: string): void {
         const normalizedMessage = message?.trim();
 
@@ -1005,8 +1016,7 @@ export class TradingService {
                     if (longPercent > this.warningPercent || shortPercent > this.warningPercent) {
                         const warningMessage = `🚨 🚨 🚨 Warning ${pair.name} ${pair.exchange} by price`;
 
-                        this.enqueueTelegramMessage(warningMessage);
-                        await this.pushService.sendMessage('Trading monitor', warningMessage);
+                        await this.notifyEmergency(warningMessage);
                     }
 
                     if (usesPositionLiquidation && pair.longMargin > this.marginDifference && (pair.longLiquidatePercent > this.liquidationMaxPercent || pair.longLiquidatePercent < this.liquidationMinPercent)) {
