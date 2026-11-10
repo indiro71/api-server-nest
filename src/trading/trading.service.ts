@@ -828,37 +828,6 @@ export class TradingService {
         return isShort ? -percent : percent;
     };
 
-    async getPairCurrentPrice(pair: {
-        exchange: Exchange | string;
-        contract: string;
-        symbol: string
-    }): Promise<number> {
-        let pairCurrentPrice = 0;
-
-        switch (pair.exchange) {
-            case Exchange.MEXC: {
-                const price = await this.bybitService.getContractFairPrice(pair.symbol);
-                pairCurrentPrice = +price;
-                break;
-            }
-
-            case Exchange.BYBIT: {
-                const price = await this.bybitService.getContractFairPrice(pair.symbol);
-                pairCurrentPrice = +price;
-                break;
-            }
-
-            default:
-                throw new Error(`Unsupported exchange: ${pair.exchange}`);
-        }
-
-        if (!Number.isFinite(pairCurrentPrice) || pairCurrentPrice <= 0) {
-            throw new Error(`Invalid current price for ${pair.symbol}: ${pairCurrentPrice}`);
-        }
-
-        return pairCurrentPrice;
-    }
-
     async tradeMonitoring() {
         if (!this.isActiveMonitoring) return;
         if (this.isMonitoring) return;
@@ -872,15 +841,13 @@ export class TradingService {
             const pairs = await this.pairService.getAll();
 
             if (pairs?.length > 0 && !this.isTraded) {
-                const activePairs = pairs.filter((pair) => pair.isActive);
+                const activePairs = pairs.filter(pair => pair.isActive && pair.exchange === Exchange.BYBIT);
 
                 const bybitPositionsByAccount = new Map<number, Position[]>();
                 const bybitMarginModes = new Map<number, BybitMarginMode>();
                 const bybitMarginRiskByAccount = new Map<number, BybitAccountMarginRisk>();
                 const bybitAccounts = Array.from(new Set(
-                    activePairs
-                        .filter((pair) => pair.exchange === Exchange.BYBIT)
-                        .map((pair) => this.getPairExchangeAccount(pair)),
+                    activePairs.map(pair => this.getPairExchangeAccount(pair)),
                 ));
 
                 for (const exchangeAccount of bybitAccounts) {
@@ -924,48 +891,27 @@ export class TradingService {
                     }
                 }
 
+                const pricesBySymbol = activePairs.length > 0
+                    ? await this.runBybitMonitoringRequest(() => this.bybitService.getLinearLastPrices(), deadlineAt)
+                    : new Map<string, number>();
+
                 const messages = [];
                 const changeMarginPairs: Pair[] = [];
                 const updatedPairs: Pair[] = [];
 
-                for (const pair of pairs) {
+                for (const pair of activePairs) {
                     this.assertTradeMonitoringDeadline(deadlineAt);
 
-                    if (!pair.isActive) continue;
+                    const exchangeAccount = this.getPairExchangeAccount(pair);
+                    const positions = bybitPositionsByAccount.get(exchangeAccount);
+                    if (!positions) continue;
 
-                    let positions: Position[] = [];
-                    let bybitMarginMode: BybitMarginMode = null;
-                    let bybitMarginRisk: BybitAccountMarginRisk = null;
+                    const bybitMarginMode = bybitMarginModes.get(exchangeAccount);
+                    const bybitMarginRisk = bybitMarginRiskByAccount.get(exchangeAccount);
 
-                    switch (pair.exchange) {
-                        case Exchange.MEXC:
-                            positions = this.getStoredPairPositions(pair);
-                            break;
-                        case Exchange.BYBIT: {
-                            const exchangeAccount = this.getPairExchangeAccount(pair);
-
-                            if (!bybitPositionsByAccount.has(exchangeAccount)) {
-                                continue;
-                            }
-
-                            positions = bybitPositionsByAccount.get(exchangeAccount);
-                            bybitMarginMode = bybitMarginModes.get(exchangeAccount);
-                            bybitMarginRisk = bybitMarginRiskByAccount.get(exchangeAccount);
-                            break;
-                        }
-                    }
-
-                    let pairCurrentPrice: number;
-
-                    try {
-                        pairCurrentPrice = await this.runBybitMonitoringRequest(
-                            () => this.getPairCurrentPrice(pair),
-                            deadlineAt,
-                        );
-                    } catch (error) {
-                        if (this.shouldStopTradeMonitoring(error)) throw error;
-
-                        this.captureError(error, 'trading.tradeMonitoring.pairPrice', {
+                    const pairCurrentPrice = pricesBySymbol.get(pair.symbol);
+                    if (pairCurrentPrice === undefined) {
+                        this.captureError(new Error(`Bybit snapshot has no valid last price for ${pair.symbol}`), 'trading.tradeMonitoring.pairPrice', {
                             exchange: pair.exchange,
                             pairId: pair._id,
                             symbol: pair.symbol,
@@ -994,8 +940,7 @@ export class TradingService {
 
                     const longPercent = this.getPercent(pair.currentPrice, pair.longPrice) * pair.leverage;
                     const shortPercent = this.getPercent(pair.currentPrice, pair.shortPrice, true) * pair.leverage;
-                    const usesPositionLiquidation = pair.exchange !== Exchange.BYBIT
-                        || bybitMarginMode === BybitMarginMode.ISOLATED;
+                    const usesPositionLiquidation = bybitMarginMode === BybitMarginMode.ISOLATED;
                     const longLiquidationPercent = bybitMarginMode === BybitMarginMode.CROSS
                         ? this.getPositionAccountMmContribution(longPosition, bybitMarginRisk)
                         : usesPositionLiquidation && longPosition?.liquidatePrice
@@ -1263,36 +1208,6 @@ export class TradingService {
         }
 
         return exchangeAccount;
-    }
-
-    private getStoredPairPositions(pair: Pair): Position[] {
-        const positions: Position[] = [];
-
-        if (Number(pair.longMargin) > 0 && Number(pair.longPrice) > 0) {
-            positions.push({
-                symbol: pair.symbol,
-                positionType: PositionType.LONG,
-                holdAvgPrice: Number(pair.longPrice),
-                im: Number(pair.longAllMargin) || Number(pair.longMargin),
-                oim: Number(pair.longMargin),
-                liquidatePrice: Number(pair.longLiquidatePrice) || 0,
-                autoAddIm: Boolean(pair.autoAddLongMargin),
-            });
-        }
-
-        if (Number(pair.shortMargin) > 0 && Number(pair.shortPrice) > 0) {
-            positions.push({
-                symbol: pair.symbol,
-                positionType: PositionType.SHORT,
-                holdAvgPrice: Number(pair.shortPrice),
-                im: Number(pair.shortAllMargin) || Number(pair.shortMargin),
-                oim: Number(pair.shortMargin),
-                liquidatePrice: Number(pair.shortLiquidatePrice) || 0,
-                autoAddIm: Boolean(pair.autoAddShortMargin),
-            });
-        }
-
-        return positions;
     }
 
     private getPositionAccountMmContribution(

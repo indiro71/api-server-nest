@@ -106,6 +106,25 @@ export class BybitService {
         }
     }
 
+    async getLinearLastPrices(): Promise<Map<string, number>> {
+        const response = await this.publicClient.getTickers({ category: CategoryType.LINEAR });
+        const tickers = response?.result?.list;
+
+        if (response?.retCode !== 0 || !Array.isArray(tickers) || tickers.length === 0) {
+            throw new Error(`Failed to fetch Bybit linear tickers: ${response?.retCode ? response.retMsg : 'empty snapshot'}`);
+        }
+
+        const prices = new Map<string, number>();
+        for (const ticker of tickers) {
+            const price = Number(ticker.lastPrice);
+            if (ticker.symbol && Number.isFinite(price) && price > 0) {
+                prices.set(ticker.symbol, price);
+            }
+        }
+
+        return prices;
+    }
+
     async getPositions(
         exchangeAccount: number,
         symbol?: string,
