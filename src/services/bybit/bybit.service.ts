@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { RestClientV5 } from 'bybit-api';
+import { AccountOrderV5, RestClientV5 } from 'bybit-api';
 import { ErrorLogService } from '../../error-log/error-log.service';
 import {
     BybitMarginMode,
@@ -38,6 +38,21 @@ interface CloseMarketPositionParams {
     positionIdx: 1 | 2;
 }
 
+interface TrackedMarketOrderParams {
+    symbol: string;
+    positionIdx: 1 | 2;
+    qty: string;
+    orderLinkId: string;
+    reduceOnly: boolean;
+    triggerPrice?: string;
+}
+
+export class BybitTrackedOrderError extends Error {
+    constructor(readonly code: number, message: string) {
+        super(message);
+    }
+}
+
 export interface CloseMarketPositionResult {
     avgEntryPrice: string;
     closedPnl: IBybitClosedPnl | null;
@@ -59,12 +74,13 @@ export interface BybitAccountMarginRisk {
 @Injectable()
 export class BybitService {
     private readonly requestTimeoutMs = this.getRequestTimeoutMs();
+    private readonly testnet = process.env.BYBIT_TESTNET === 'true';
     private readonly clients = new Map<number, RestClientV5>();
     private readonly publicClient: RestClientV5;
 
     constructor(private readonly errorLogService: ErrorLogService) {
         this.publicClient = new RestClientV5(
-            {},
+            { testnet: this.testnet },
             {
                 timeout: this.requestTimeoutMs,
             },
@@ -122,6 +138,56 @@ export class BybitService {
         } catch (e) {
             this.captureError(e, 'bybit.getOrders', { exchangeAccount, symbol });
             throw e;
+        }
+    }
+
+    async submitTrackedMarketOrder(exchangeAccount: number, params: TrackedMarketOrderParams): Promise<void> {
+        const { symbol, positionIdx, qty, orderLinkId, reduceOnly, triggerPrice } = params;
+        const isBuy = (positionIdx === 1) !== reduceOnly;
+        const response = await this.getClient(exchangeAccount).submitOrder({
+            category: CategoryType.LINEAR,
+            symbol,
+            positionIdx,
+            qty,
+            orderLinkId,
+            reduceOnly,
+            side: isBuy ? OrderSide.Buy : OrderSide.Sell,
+            orderType: OrderType.Market,
+            timeInForce: OrderTimeInForce.IOC,
+            ...(triggerPrice ? {
+                triggerPrice,
+                triggerBy: 'LastPrice',
+                triggerDirection: positionIdx === 1 ? 2 : 1,
+                closeOnTrigger: true,
+            } as const : {}),
+        });
+        if (response.retCode !== 0) {
+            throw new BybitTrackedOrderError(response.retCode, response.retMsg);
+        }
+    }
+
+    async getTrackedOrder(exchangeAccount: number, symbol: string, orderLinkId: string): Promise<AccountOrderV5 | undefined> {
+        const client = this.getClient(exchangeAccount);
+        const params = { category: CategoryType.LINEAR, symbol, orderLinkId };
+        const recent = await client.getActiveOrders(params);
+        if (recent.retCode !== 0) throw new Error(recent.retMsg);
+        const order = recent.result.list.find(item => item.orderLinkId === orderLinkId);
+        if (order) return order;
+
+        const history = await client.getHistoricOrders(params);
+        if (history.retCode !== 0) throw new Error(history.retMsg);
+        return history.result.list.find(item => item.orderLinkId === orderLinkId);
+    }
+
+    async cancelTrackedOrder(exchangeAccount: number, symbol: string, orderLinkId: string): Promise<void> {
+        const response = await this.getClient(exchangeAccount).cancelOrder({
+            category: CategoryType.LINEAR,
+            symbol,
+            orderLinkId,
+        });
+        if (response.retCode !== 0 && response.retCode !== 110001 && response.retCode !== 110008
+            && response.retCode !== 110010) {
+            throw new Error(response.retMsg);
         }
     }
 
@@ -349,11 +415,11 @@ export class BybitService {
         return `${sign * value}`;
     }
 
-    private async getInstrument(symbol: string): Promise<any> {
-        const result = await this.publicClient.getInstrumentsInfo({
-            category: CategoryType.LINEAR,
+    async getInstrument(symbol: string) {
+        const result = await this.publicClient.getInstrumentsInfo<'linear'>({
+            category: 'linear',
             symbol,
-        } as any);
+        });
 
         if (result?.retCode) {
             throw new Error(result.retMsg);
@@ -457,7 +523,7 @@ export class BybitService {
         }
 
         const client = new RestClientV5(
-            { key, secret },
+            { key, secret, testnet: this.testnet },
             { timeout: this.requestTimeoutMs },
         );
 
