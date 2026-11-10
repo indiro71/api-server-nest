@@ -5,6 +5,8 @@ import { TelegramService } from '../services/telegram/telegram.service';
 import { OrderService } from './order/order.service';
 import { CreateOrderDto } from './order/dto/create-order.dto';
 import { PairService } from './pair/pair.service';
+import { InsuranceService, PairWithInsurance } from './pair/insurance/insurance.service';
+import { insuranceRefreshPercent } from './pair/insurance/insurance-quantity';
 import { PositionType } from '../services/mxc/mxc.interfaces';
 import { BybitAccountMarginRisk, BybitService } from '../services/bybit/bybit.service';
 import { BybitMarginMode } from '../services/bybit/bybit.interfaces';
@@ -86,7 +88,7 @@ export class TradingService {
     private bybitConsecutiveTimeouts: number;
     private bybitCircuitOpenUntil: number;
 
-    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pushService: PushService, private readonly errorLogService: ErrorLogService) {
+    constructor(private readonly mxcService: MxcService, private readonly bybitService: BybitService, private readonly currencyService: CurrencyService, private readonly pairService: PairService, private readonly telegramService: TelegramService, private readonly orderService: OrderService, private readonly pushService: PushService, private readonly errorLogService: ErrorLogService, private readonly insuranceService: InsuranceService) {
         this.isTraded = false;
         this.isMonitoring = false;
         this.buyOnRise = false;
@@ -1121,7 +1123,7 @@ export class TradingService {
 
                 this.assertTradeMonitoringDeadline(deadlineAt);
                 await this.pushService.notifyTradingSignals({
-                    activeButtonsCount: this.getActiveTradingButtonsCount(updatedPairs),
+                    activeButtonsCount: this.getActiveTradingButtonsCount(await this.insuranceService.projectPairs(updatedPairs)),
                 });
 
                 if (changeMarginPairs?.length > 0) {
@@ -1317,7 +1319,7 @@ export class TradingService {
         return Number(contributionPercent.toFixed(4));
     }
 
-    private getActiveTradingButtonsCount(pairs: Pair[]): number {
+    private getActiveTradingButtonsCount(pairs: PairWithInsurance[]): number {
         return pairs.reduce((count, pair) => {
             if (pair.isActive === false || pair.exchange !== Exchange.BYBIT) {
                 return count;
@@ -1325,19 +1327,23 @@ export class TradingService {
 
             let pairButtonsCount = 0;
 
-            if (this.hasSellSignal(pair, PositionType.LONG)) {
+            if (pair.insurance?.long?.blocking
+                ? pair.insurance.long.phase === 'active' && pair.longPercent > insuranceRefreshPercent
+                : this.hasSellSignal(pair, PositionType.LONG)) {
                 pairButtonsCount += 1;
             }
 
-            if (this.hasSellSignal(pair, PositionType.SHORT)) {
+            if (pair.insurance?.short?.blocking
+                ? pair.insurance.short.phase === 'active' && pair.shortPercent > insuranceRefreshPercent
+                : this.hasSellSignal(pair, PositionType.SHORT)) {
                 pairButtonsCount += 1;
             }
 
-            if (pair.nextBuyLongPrice && pair.currentPrice < pair.nextBuyLongPrice) {
+            if (!pair.insurance?.long?.blocking && pair.nextBuyLongPrice && pair.currentPrice < pair.nextBuyLongPrice) {
                 pairButtonsCount += 1;
             }
 
-            if (pair.nextBuyShortPrice && pair.currentPrice > pair.nextBuyShortPrice) {
+            if (!pair.insurance?.short?.blocking && pair.nextBuyShortPrice && pair.currentPrice > pair.nextBuyShortPrice) {
                 pairButtonsCount += 1;
             }
 
@@ -1466,13 +1472,15 @@ export class TradingService {
     }
 
     async checkBuy() {
-        const pairs = await this.pairService.getAll();
+        const pairs = await this.insuranceService.projectPairs(await this.pairService.getAll());
         if (pairs?.length > 0) {
             try {
                 const messages = [];
                 for (const pair of pairs) {
-                    const needNextLong = pair?.nextBuyLongPrice && pair?.currentPrice < pair?.nextBuyLongPrice;
-                    const needNextShort = pair?.nextBuyShortPrice && pair?.currentPrice > pair?.nextBuyShortPrice;
+                    const needNextLong = !pair.insurance?.long?.blocking
+                        && pair.nextBuyLongPrice && pair.currentPrice < pair.nextBuyLongPrice;
+                    const needNextShort = !pair.insurance?.short?.blocking
+                        && pair.nextBuyShortPrice && pair.currentPrice > pair.nextBuyShortPrice;
 
                     if (needNextLong || needNextShort) {
                         messages.push(`🚨 [${pair.name}] [${pair.exchange}] [${needNextLong ? 'LONG' : 'SHORT'}] [BUY]`);
@@ -1495,16 +1503,16 @@ export class TradingService {
     }
 
     async checkSell() {
-        const pairs = await this.pairService.getAll();
+        const pairs = await this.insuranceService.projectPairs(await this.pairService.getAll());
         if (pairs?.length > 0) {
             try {
                 const messages = [];
                 for (const pair of pairs) {
-                    if (pair.currentPrice < pair.sellShortPrice && pair.shortMargin > 0) {
+                    if (!pair.insurance?.short?.blocking && pair.currentPrice < pair.sellShortPrice && pair.shortMargin > 0) {
                         messages.push(`💰 [${pair.name}] [${pair.exchange}] [SHORT] [SELL]`);
                     }
 
-                    if (pair.currentPrice > pair.sellLongPrice && pair.longMargin > 0) {
+                    if (!pair.insurance?.long?.blocking && pair.currentPrice > pair.sellLongPrice && pair.longMargin > 0) {
                         messages.push(`💰 [${pair.name}] [${pair.exchange}] [LONG] [SELL]`);
                     }
                 }

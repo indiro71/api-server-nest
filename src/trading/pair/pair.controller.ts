@@ -20,6 +20,8 @@ import { ReopenBybitMarketPositionDto } from './dto/reopen-bybit-market-position
 import { Exchange } from '../trading.interfaces';
 import { BybitService } from '../../services/bybit/bybit.service';
 import { OrderSide } from '../../services/bybit/bybit.interfaces';
+import { InsuranceService } from './insurance/insurance.service';
+import { ArmInsuranceDto, InsuranceSideDto, RefreshInsuranceDto } from './insurance/insurance.dto';
 
 const ALLOWED_BYBIT_MARKET_POSITION_AMOUNTS = [5, 10, 20, 25, 30, 35, 40, 45, 50];
 const ALLOWED_BYBIT_REOPEN_MARKET_POSITION_AMOUNTS = [20, 25, 30, 35, 40, 45, 50];
@@ -28,20 +30,25 @@ const ALLOWED_BYBIT_REOPEN_MARKET_POSITION_AMOUNTS = [20, 25, 30, 35, 40, 45, 50
 @UseGuards(JwtAuthGuard)
 @Controller('/scanprices/pairs')
 export class PairController {
-  constructor(private pairService: PairService, private bybitService: BybitService) {}
+  constructor(
+    private pairService: PairService,
+    private bybitService: BybitService,
+    private insuranceService: InsuranceService,
+  ) {}
 
   @ApiOperation({ summary: 'Get all pairs' })
   @ApiResponse({ status: 200, type: [Pair] })
   @Get()
-  getAll() {
-    return this.pairService.getAll();
+  async getAll() {
+    return this.insuranceService.projectPairs(await this.pairService.getAll());
   }
 
   @ApiOperation({ summary: 'Get pair by id' })
   @ApiResponse({ status: 200, type: Pair })
   @Get(':id')
-  getById(@Param('id') id: ObjectId) {
-    return this.pairService.getById(id);
+  async getById(@Param('id') id: ObjectId) {
+    const [pair] = await this.insuranceService.projectPairs([await this.pairService.getById(id)]);
+    return pair;
   }
 
   @ApiOperation({ summary: 'Update pair by id' })
@@ -56,6 +63,21 @@ export class PairController {
   @Post()
   create(@Body() dto: CreatePairDto) {
     return this.pairService.create(dto);
+  }
+
+  @Post(':id/bybit/insurance/preview')
+  async previewInsurance(@Param('id') id: ObjectId, @Body() dto: InsuranceSideDto) {
+    return this.insuranceService.preview(await this.pairService.getById(id), dto.side);
+  }
+
+  @Post(':id/bybit/insurance')
+  async armInsurance(@Param('id') id: ObjectId, @Body() dto: ArmInsuranceDto) {
+    return this.insuranceService.arm(await this.pairService.getById(id), dto);
+  }
+
+  @Post(':id/bybit/insurance/refresh')
+  async refreshInsurance(@Param('id') id: ObjectId, @Body() dto: RefreshInsuranceDto) {
+    return this.insuranceService.refresh(await this.pairService.getById(id), dto);
   }
 
   @ApiOperation({ summary: 'Open Bybit futures market position by pair signal' })
@@ -73,38 +95,41 @@ export class PairController {
     this.validateBybitPair(pair);
 
     const exchangeAccount = this.getPairExchangeAccount(pair);
-    const livePrice = await this.getBybitPairPrice(pair);
-    const leverage = Number(pair.leverage || 1);
-    const isLong = side === BybitMarketPositionSide.LONG;
-    const signalPrice = Number(isLong ? pair.nextBuyLongPrice : pair.nextBuyShortPrice);
-    const signalIsActive = isLong ? livePrice < signalPrice : livePrice > signalPrice;
+    return this.insuranceService.withTradeLock({ exchangeAccount, symbol: pair.symbol }, async () => {
+      await this.insuranceService.assertTradeAllowed(pair, side, true);
+      const livePrice = await this.getBybitPairPrice(pair);
+      const leverage = Number(pair.leverage || 1);
+      const isLong = side === BybitMarketPositionSide.LONG;
+      const signalPrice = Number(isLong ? pair.nextBuyLongPrice : pair.nextBuyShortPrice);
+      const signalIsActive = isLong ? livePrice < signalPrice : livePrice > signalPrice;
 
-    if (!signalPrice || !signalIsActive) {
-      throw new BadRequestException('Next buy signal is not active anymore');
-    }
+      if (!signalPrice || !signalIsActive) {
+        throw new BadRequestException('Next buy signal is not active anymore');
+      }
 
-    try {
-      const order = await this.bybitService.openMarketPosition(exchangeAccount, {
-        symbol: pair.symbol,
-        side: isLong ? OrderSide.Buy : OrderSide.Sell,
-        amount,
-        leverage,
-        price: livePrice,
-        positionIdx: isLong ? 1 : 2,
-      });
+      try {
+        const order = await this.bybitService.openMarketPosition(exchangeAccount, {
+          symbol: pair.symbol,
+          side: isLong ? OrderSide.Buy : OrderSide.Sell,
+          amount,
+          leverage,
+          price: livePrice,
+          positionIdx: isLong ? 1 : 2,
+        });
 
-      return {
-        success: true,
-        pairId: pair._id,
-        exchangeAccount,
-        symbol: pair.symbol,
-        name: pair.name,
-        side,
-        ...order,
-      };
-    } catch (error) {
-      throw new BadRequestException(error?.message || 'Bybit market position failed');
-    }
+        return {
+          success: true,
+          pairId: pair._id,
+          exchangeAccount,
+          symbol: pair.symbol,
+          name: pair.name,
+          side,
+          ...order,
+        };
+      } catch (error) {
+        throw new BadRequestException(error?.message || 'Bybit market position failed');
+      }
+    });
   }
 
   @ApiOperation({ summary: 'Close profitable Bybit futures position and optionally reopen it by market' })
@@ -125,79 +150,82 @@ export class PairController {
     this.validateBybitPair(pair);
 
     const exchangeAccount = this.getPairExchangeAccount(pair);
-    const leverage = Number(pair.leverage || 1);
-    const isLong = side === BybitMarketPositionSide.LONG;
+    return this.insuranceService.withTradeLock({ exchangeAccount, symbol: pair.symbol }, async () => {
+      await this.insuranceService.assertTradeAllowed(pair, side, false);
+      const leverage = Number(pair.leverage || 1);
+      const isLong = side === BybitMarketPositionSide.LONG;
 
-    if (!this.hasBybitSellSignal(pair, side)) {
-      throw new BadRequestException('Sell signal is not active anymore');
-    }
-
-    try {
-      const close = await this.bybitService.closeMarketPosition(exchangeAccount, {
-        symbol: pair.symbol,
-        side: isLong ? OrderSide.Sell : OrderSide.Buy,
-        positionIdx: isLong ? 1 : 2,
-      });
-
-      if (!shouldReopen) {
-        return {
-          success: true,
-          pairId: pair._id,
-          exchangeAccount,
-          symbol: pair.symbol,
-          name: pair.name,
-          side,
-          close,
-          reopenSkipped: true,
-        };
+      if (!this.hasBybitSellSignal(pair, side)) {
+        throw new BadRequestException('Sell signal is not active anymore');
       }
 
       try {
-        const livePrice = await this.getBybitPairPrice(pair);
-        const reopen = await this.bybitService.openMarketPosition(exchangeAccount, {
+        const close = await this.bybitService.closeMarketPosition(exchangeAccount, {
           symbol: pair.symbol,
-          side: isLong ? OrderSide.Buy : OrderSide.Sell,
-          amount,
-          leverage,
-          price: livePrice,
+          side: isLong ? OrderSide.Sell : OrderSide.Buy,
           positionIdx: isLong ? 1 : 2,
         });
 
-        return {
-          success: true,
-          pairId: pair._id,
-          exchangeAccount,
-          symbol: pair.symbol,
-          name: pair.name,
-          side,
-          amount,
-          close,
-          reopen: {
+        if (!shouldReopen) {
+          return {
             success: true,
             pairId: pair._id,
             exchangeAccount,
             symbol: pair.symbol,
             name: pair.name,
             side,
-            ...reopen,
-          },
-        };
-      } catch (openError) {
-        return {
-          success: false,
-          pairId: pair._id,
-          exchangeAccount,
-          symbol: pair.symbol,
-          name: pair.name,
-          side,
-          amount,
-          close,
-          openError: openError?.message || 'Bybit reopen market position failed',
-        };
+            close,
+            reopenSkipped: true,
+          };
+        }
+
+        try {
+          const livePrice = await this.getBybitPairPrice(pair);
+          const reopen = await this.bybitService.openMarketPosition(exchangeAccount, {
+            symbol: pair.symbol,
+            side: isLong ? OrderSide.Buy : OrderSide.Sell,
+            amount,
+            leverage,
+            price: livePrice,
+            positionIdx: isLong ? 1 : 2,
+          });
+
+          return {
+            success: true,
+            pairId: pair._id,
+            exchangeAccount,
+            symbol: pair.symbol,
+            name: pair.name,
+            side,
+            amount,
+            close,
+            reopen: {
+              success: true,
+              pairId: pair._id,
+              exchangeAccount,
+              symbol: pair.symbol,
+              name: pair.name,
+              side,
+              ...reopen,
+            },
+          };
+        } catch (openError) {
+          return {
+            success: false,
+            pairId: pair._id,
+            exchangeAccount,
+            symbol: pair.symbol,
+            name: pair.name,
+            side,
+            amount,
+            close,
+            openError: openError?.message || 'Bybit reopen market position failed',
+          };
+        }
+      } catch (error) {
+        throw new BadRequestException(error?.message || 'Bybit close market position failed');
       }
-    } catch (error) {
-      throw new BadRequestException(error?.message || 'Bybit close market position failed');
-    }
+    });
   }
 
   @ApiOperation({ summary: 'Delete pair by id' })
